@@ -1,16 +1,18 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Shield, Copy, Check, Users, Pencil, X, RefreshCw } from 'lucide-react';
+import { Shield, Copy, Check, Users, Pencil, X, RefreshCw, Plus, MapPin, Trash2 } from 'lucide-react';
 import Avatar from '../components/Avatar';
 import { useAuth } from '../context/AuthContext';
 import { usePeople } from '../context/PeopleContext';
 
 // ─── Edit Church Modal ────────────────────────────────────────────────────────
 function EditChurchModal({ church, onSave, onClose }) {
-  const [name, setName]       = useState(church?.name || '');
+  const [name, setName]         = useState(church?.name || '');
   const [joinCode, setJoinCode] = useState(church?.join_code || '');
-  const [error, setError]     = useState('');
-  const [saving, setSaving]   = useState(false);
+  const [campuses, setCampuses] = useState(church?.campuses || []);
+  const [newCampus, setNewCampus] = useState('');
+  const [error, setError]       = useState('');
+  const [saving, setSaving]     = useState(false);
   const [codeCopied, setCodeCopied] = useState(false);
 
   function regenerateCode() {
@@ -25,6 +27,19 @@ function EditChurchModal({ church, onSave, onClose }) {
     setTimeout(() => setCodeCopied(false), 2000);
   }
 
+  function addCampus() {
+    const trimmed = newCampus.trim();
+    if (!trimmed) return;
+    if (campuses.includes(trimmed)) { setError('That campus already exists.'); return; }
+    setCampuses(prev => [...prev, trimmed]);
+    setNewCampus('');
+    setError('');
+  }
+
+  function removeCampus(c) {
+    setCampuses(prev => prev.filter(x => x !== c));
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
     if (!name.trim()) { setError('Church name is required.'); return; }
@@ -32,6 +47,7 @@ function EditChurchModal({ church, onSave, onClose }) {
     const { error: err } = await onSave({
       name:     name.trim(),
       joinCode: joinCode !== church?.join_code ? joinCode : undefined,
+      campuses,
     });
     if (err) { setError(err); setSaving(false); }
     else onClose();
@@ -50,7 +66,7 @@ function EditChurchModal({ church, onSave, onClose }) {
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="px-6 py-6 space-y-6">
+        <form onSubmit={handleSubmit} className="px-6 py-6 space-y-6 max-h-[80vh] overflow-y-auto">
           {/* Church name */}
           <div>
             <label className="section-label block mb-2">Church Name</label>
@@ -62,6 +78,44 @@ function EditChurchModal({ church, onSave, onClose }) {
               autoFocus
               className="input-line"
             />
+          </div>
+
+          {/* Campuses */}
+          <div>
+            <label className="section-label flex items-center gap-1 mb-3">
+              <MapPin className="w-3 h-3" /> Campuses
+            </label>
+            {campuses.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-3">
+                {campuses.map(c => (
+                  <span key={c}
+                    className="flex items-center gap-1.5 bg-teal-50 text-teal-700 text-[11px] font-medium px-3 py-1 rounded-full border border-teal-100">
+                    {c}
+                    <button type="button" onClick={() => removeCampus(c)}
+                      className="text-teal-400 hover:text-red-500 transition-colors ml-0.5">
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={newCampus}
+                onChange={e => { setNewCampus(e.target.value); setError(''); }}
+                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addCampus(); } }}
+                placeholder="e.g. Frisco, Allen, Online..."
+                className="input-line flex-1"
+              />
+              <button type="button" onClick={addCampus}
+                className="btn-secondary flex items-center gap-1 flex-shrink-0">
+                <Plus className="w-3.5 h-3.5" /> Add
+              </button>
+            </div>
+            <p className="text-[10px] text-gray-400 mt-1.5">
+              Pastors will choose from this list when they join.
+            </p>
           </div>
 
           {/* Join code */}

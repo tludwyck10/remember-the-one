@@ -1,8 +1,7 @@
 import { useState } from 'react';
-import { Church, Users, ArrowRight, MapPin, ChevronDown } from 'lucide-react';
+import { Church, Users, ArrowRight, MapPin, ChevronDown, Check } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
-const CAMPUSES = ['Frisco', 'Allen', 'McKinney', 'Prosper', 'Online'];
 const ROLES = [
   'Lead Pastor',
   'Assistant Pastor',
@@ -26,8 +25,10 @@ function SelectField({ label, value, onChange, options, icon: Icon }) {
   );
 }
 
-function ProfileFields({ profile, onChange }) {
+function ProfileFields({ profile, onChange, campuses }) {
   function set(field) { return e => onChange(field, e.target.value); }
+
+  const campusOptions = campuses && campuses.length > 0 ? campuses : null;
 
   return (
     <div className="space-y-4">
@@ -50,40 +51,91 @@ function ProfileFields({ profile, onChange }) {
       </div>
       <div className="grid grid-cols-2 gap-3">
         <SelectField label="Role" value={profile.role} onChange={v => onChange('role', v)} options={ROLES} />
-        <SelectField label="Campus" value={profile.campus} onChange={v => onChange('campus', v)}
-          options={CAMPUSES} icon={MapPin} />
+        {campusOptions ? (
+          <SelectField label="Campus" value={profile.campus} onChange={v => onChange('campus', v)}
+            options={campusOptions} icon={MapPin} />
+        ) : (
+          <div>
+            <label className="section-label flex items-center gap-1 mb-2">
+              <MapPin className="w-3 h-3" /> Campus
+            </label>
+            <input type="text" value={profile.campus} onChange={set('campus')}
+              placeholder="e.g. Frisco" className="input-line" />
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
 export default function Onboarding() {
-  const { createChurch, joinChurch, signOut } = useAuth();
+  const { createChurch, joinChurch, lookupChurch, signOut } = useAuth();
   const [step, setStep]     = useState('choose'); // 'choose' | 'register' | 'join'
   const [error, setError]   = useState('');
   const [loading, setLoading] = useState(false);
 
   const [profile, setProfile] = useState({
-    first_name: '', last_name: '', title: 'Pastor', role: 'Lead Pastor', campus: 'Frisco',
+    first_name: '', last_name: '', title: 'Pastor', role: 'Lead Pastor', campus: '',
   });
   const [churchName, setChurchName] = useState('');
-  const [joinCode, setJoinCode]     = useState('');
+
+  // Register campuses state
+  const [newCampus, setNewCampus]     = useState('');
+  const [campusList, setCampusList]   = useState([]);
+
+  // Join state
+  const [joinCode, setJoinCode]       = useState('');
+  const [foundChurch, setFoundChurch] = useState(null); // { id, name, campuses }
+  const [lookingUp, setLookingUp]     = useState(false);
 
   function setP(field, val) { setProfile(p => ({ ...p, [field]: val })); setError(''); }
+
+  // ── Register helpers ──────────────────────────────────────────────────────
+  function addRegisterCampus() {
+    const trimmed = newCampus.trim();
+    if (!trimmed) return;
+    if (campusList.includes(trimmed)) return;
+    setCampusList(prev => [...prev, trimmed]);
+    setNewCampus('');
+  }
+
+  function removeRegisterCampus(c) {
+    setCampusList(prev => prev.filter(x => x !== c));
+  }
 
   async function handleRegister(e) {
     e.preventDefault();
     if (!profile.first_name.trim()) { setError('Enter your first name.'); return; }
     if (!churchName.trim())          { setError('Enter your church name.'); return; }
     setLoading(true);
-    const { error: err } = await createChurch(churchName.trim(), profile);
+    const { error: err } = await createChurch(churchName.trim(), profile, campusList);
     if (err) { setError(err); setLoading(false); }
+  }
+
+  // ── Join helpers ──────────────────────────────────────────────────────────
+  async function handleCodeChange(val) {
+    const code = val.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+    setJoinCode(code);
+    setFoundChurch(null);
+    setError('');
+
+    if (code.length === 6) {
+      setLookingUp(true);
+      const { church: found, error: err } = await lookupChurch(code);
+      setLookingUp(false);
+      if (err) { setError(err); return; }
+      setFoundChurch(found);
+      // Pre-select first campus if available
+      if (found.campuses?.length > 0) {
+        setP('campus', found.campuses[0]);
+      }
+    }
   }
 
   async function handleJoin(e) {
     e.preventDefault();
-    if (!profile.first_name.trim())    { setError('Enter your first name.'); return; }
-    if (joinCode.trim().length !== 6)  { setError('Join codes are exactly 6 characters.'); return; }
+    if (!profile.first_name.trim())   { setError('Enter your first name.'); return; }
+    if (!foundChurch)                  { setError('Enter a valid 6-character join code.'); return; }
     setLoading(true);
     const { error: err } = await joinChurch(joinCode, profile);
     if (err) { setError(err); setLoading(false); }
@@ -152,10 +204,44 @@ export default function Onboarding() {
                 onChange={e => { setChurchName(e.target.value); setError(''); }}
                 placeholder="e.g. Shoreline City Church" className="input-line" autoFocus />
             </div>
+
+            {/* Campuses */}
+            <div>
+              <label className="section-label flex items-center gap-1 mb-3">
+                <MapPin className="w-3 h-3" /> Campuses
+                <span className="text-gray-300 font-normal">(optional — you can add later)</span>
+              </label>
+              {campusList.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {campusList.map(c => (
+                    <span key={c}
+                      className="flex items-center gap-1.5 bg-teal-50 text-teal-700 text-[11px] font-medium px-3 py-1 rounded-full border border-teal-100">
+                      {c}
+                      <button type="button" onClick={() => removeRegisterCampus(c)}
+                        className="text-teal-400 hover:text-red-500 transition-colors">×</button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newCampus}
+                  onChange={e => setNewCampus(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addRegisterCampus(); } }}
+                  placeholder="e.g. Frisco, Allen, Online..."
+                  className="input-line flex-1"
+                />
+                <button type="button" onClick={addRegisterCampus}
+                  className="btn-secondary flex-shrink-0">Add</button>
+              </div>
+            </div>
+
             <div>
               <p className="section-label mb-3">Your Info</p>
-              <ProfileFields profile={profile} onChange={setP} />
+              <ProfileFields profile={profile} onChange={setP} campuses={campusList} />
             </div>
+
             {error && (
               <div className="bg-red-50 border border-red-100 rounded-xl px-4 py-3">
                 <p className="text-xs text-red-600">{error}</p>
@@ -179,32 +265,51 @@ export default function Onboarding() {
               <input
                 type="text"
                 value={joinCode}
-                onChange={e => {
-                  setJoinCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6));
-                  setError('');
-                }}
+                onChange={e => handleCodeChange(e.target.value)}
                 placeholder="XXXXXX"
                 maxLength={6}
                 autoFocus
                 className="input-line text-center text-2xl tracking-[0.5em] font-mono"
               />
-              <p className="text-[10px] text-gray-400 mt-1.5 text-center">
-                6-character code from your church admin
-              </p>
+              <div className="mt-2 h-5 flex items-center justify-center">
+                {lookingUp && (
+                  <p className="text-[10px] text-gray-400">Looking up church...</p>
+                )}
+                {foundChurch && !lookingUp && (
+                  <div className="flex items-center gap-1.5 text-[11px] text-teal-600 font-medium">
+                    <Check className="w-3.5 h-3.5" /> Joining: {foundChurch.name}
+                  </div>
+                )}
+                {!foundChurch && !lookingUp && joinCode.length === 6 && error && (
+                  <p className="text-[10px] text-red-500">{error}</p>
+                )}
+                {!foundChurch && !lookingUp && joinCode.length < 6 && (
+                  <p className="text-[10px] text-gray-400">6-character code from your church admin</p>
+                )}
+              </div>
             </div>
-            <div>
-              <p className="section-label mb-3">Your Info</p>
-              <ProfileFields profile={profile} onChange={setP} />
-            </div>
-            {error && (
+
+            {foundChurch && (
+              <div>
+                <p className="section-label mb-3">Your Info</p>
+                <ProfileFields
+                  profile={profile}
+                  onChange={setP}
+                  campuses={foundChurch.campuses}
+                />
+              </div>
+            )}
+
+            {error && joinCode.length < 6 && (
               <div className="bg-red-50 border border-red-100 rounded-xl px-4 py-3">
                 <p className="text-xs text-red-600">{error}</p>
               </div>
             )}
+
             <div className="flex gap-3">
-              <button type="button" onClick={() => { setStep('choose'); setError(''); }}
+              <button type="button" onClick={() => { setStep('choose'); setError(''); setFoundChurch(null); setJoinCode(''); }}
                 className="btn-secondary flex-1">Back</button>
-              <button type="submit" disabled={loading} className="btn-primary flex-1 disabled:opacity-60">
+              <button type="submit" disabled={loading || !foundChurch} className="btn-primary flex-1 disabled:opacity-60">
                 {loading ? 'Joining...' : 'Join Church'}
               </button>
             </div>

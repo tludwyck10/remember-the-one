@@ -73,7 +73,7 @@ export function AuthProvider({ children }) {
   }
 
   // ── Church onboarding ─────────────────────────────────────────
-  async function createChurch(churchName, profileData) {
+  async function createChurch(churchName, profileData, campuses = []) {
     const { data: { session: s } } = await supabase.auth.getSession();
     if (!s) return { error: 'Not authenticated' };
 
@@ -81,7 +81,7 @@ export function AuthProvider({ children }) {
 
     const { data: newChurch, error: churchErr } = await supabase
       .from('churches')
-      .insert({ name: churchName, join_code: joinCode })
+      .insert({ name: churchName, join_code: joinCode, campuses })
       .select()
       .single();
     if (churchErr) return { error: churchErr.message };
@@ -126,6 +126,7 @@ export function AuthProvider({ children }) {
     const updates = {};
     if (data.name     !== undefined) updates.name      = data.name;
     if (data.joinCode !== undefined) updates.join_code = data.joinCode;
+    if (data.campuses !== undefined) updates.campuses  = data.campuses;
 
     const { error } = await supabase
       .from('churches')
@@ -136,6 +137,16 @@ export function AuthProvider({ children }) {
 
     setChurch(prev => ({ ...prev, ...updates }));
     return {};
+  }
+
+  async function lookupChurch(joinCode) {
+    const { data, error } = await supabase
+      .from('churches')
+      .select('id, name, campuses')
+      .eq('join_code', joinCode.toUpperCase().trim())
+      .maybeSingle();
+    if (error || !data) return { error: 'Church not found. Double-check your join code.' };
+    return { church: data };
   }
 
   // ── Profile update ────────────────────────────────────────────
@@ -177,6 +188,7 @@ export function AuthProvider({ children }) {
       signOut,
       createChurch,
       joinChurch,
+      lookupChurch,
       updateUserProfile,
       updateChurch,
       refreshProfile: () => session && fetchProfile(session.user.id),
