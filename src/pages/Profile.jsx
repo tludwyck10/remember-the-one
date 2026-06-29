@@ -5,8 +5,6 @@ import { useProfile } from '../context/ProfileContext';
 import { useAuth } from '../context/AuthContext';
 import { uploadPhoto } from '../lib/uploadPhoto';
 
-const CAMPUSES = ['Frisco', 'Allen', 'McKinney', 'Prosper', 'Online'];
-
 const ROLES = [
   'Lead Pastor',
   'Assistant Pastor',
@@ -28,6 +26,7 @@ function Field({ label, icon: Icon, children }) {
 export default function Profile() {
   const { profile, updateProfile } = useProfile();
   const { signOut, church, session, updateUserProfile } = useAuth();
+  const campuses = church?.campuses || [];
   const [form, setForm]         = useState({ ...profile });
   const [photoUploading, setPhotoUploading] = useState(false);
   const [photoError, setPhotoError]         = useState('');
@@ -168,15 +167,28 @@ export default function Profile() {
                 </div>
               </Field>
               <Field label="Campus" icon={MapPin}>
-                <div className="relative">
-                  <select
+                {campuses.length > 0 ? (
+                  <div className="relative">
+                    <select
+                      value={form.campus}
+                      onChange={e => set('campus', e.target.value)}
+                      className="input-line bg-transparent appearance-none pr-6 cursor-pointer">
+                      {!campuses.includes(form.campus) && form.campus && (
+                        <option value={form.campus}>{form.campus}</option>
+                      )}
+                      {campuses.map(c => <option key={c}>{c}</option>)}
+                    </select>
+                    <ChevronDown className="absolute right-0 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+                  </div>
+                ) : (
+                  <input
+                    type="text"
                     value={form.campus}
                     onChange={e => set('campus', e.target.value)}
-                    className="input-line bg-transparent appearance-none pr-6 cursor-pointer">
-                    {CAMPUSES.map(c => <option key={c}>{c}</option>)}
-                  </select>
-                  <ChevronDown className="absolute right-0 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
-                </div>
+                    placeholder="e.g. Frisco"
+                    className="input-line"
+                  />
+                )}
               </Field>
             </div>
           </div>
