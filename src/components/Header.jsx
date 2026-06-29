@@ -17,7 +17,7 @@ export default function Header({ onMenuClick }) {
   const initials = `${profile.firstName?.[0] ?? ''}${profile.lastName?.[0] ?? ''}`.toUpperCase();
 
   return (
-    <header className="bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between flex-shrink-0">
+    <header className="safe-top bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between flex-shrink-0">
       <div className="flex items-center gap-4">
         <MenuButton onClick={onMenuClick} />
         <div>

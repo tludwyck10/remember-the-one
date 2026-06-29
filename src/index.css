@@ -10,6 +10,13 @@
     background-color: #F5F4F1;
     color: #1A1A1A;
     -webkit-font-smoothing: antialiased;
+    /* Prevent content from going under the iOS home indicator */
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  /* Push content below the status bar in PWA/standalone mode */
+  .safe-top {
+    padding-top: env(safe-area-inset-top);
   }
 
   input, textarea, select {
