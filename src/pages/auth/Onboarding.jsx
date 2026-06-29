@@ -4,8 +4,9 @@ import { useAuth } from '../../context/AuthContext';
 
 const CAMPUSES = ['Frisco', 'Allen', 'McKinney', 'Prosper', 'Online'];
 const ROLES = [
-  'Lead Pastor', 'Associate Pastor', 'Youth Pastor', "Children's Pastor",
-  'Worship Pastor', 'Executive Pastor', 'Discipleship Pastor', 'Campus Pastor', 'Leader',
+  'Lead Pastor',
+  'Assistant Pastor',
+  'Worship Pastor',
 ];
 
 function SelectField({ label, value, onChange, options, icon: Icon }) {

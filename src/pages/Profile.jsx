@@ -8,13 +8,8 @@ const CAMPUSES = ['Frisco', 'Allen', 'McKinney', 'Prosper', 'Online'];
 
 const ROLES = [
   'Lead Pastor',
-  'Associate Pastor',
-  'Youth Pastor',
-  'Children\'s Pastor',
+  'Assistant Pastor',
   'Worship Pastor',
-  'Executive Pastor',
-  'Discipleship Pastor',
-  'Campus Pastor',
 ];
 
 function Field({ label, icon: Icon, children }) {
