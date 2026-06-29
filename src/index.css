@@ -1,0 +1,65 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    background-color: #F5F4F1;
+    color: #1A1A1A;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  input, textarea, select {
+    font-family: 'Inter', sans-serif;
+  }
+}
+
+@layer components {
+  /* Underline input — kept for modals */
+  .input-line {
+    @apply w-full bg-transparent border-0 border-b border-gray-300 pb-2 pt-1 text-sm placeholder-gray-400 focus:outline-none focus:border-[#2A9D8F] transition-colors;
+  }
+
+  /* Primary button — teal, rounded */
+  .btn-primary {
+    @apply bg-[#2A9D8F] text-white text-[11px] uppercase tracking-[0.14em] font-medium px-5 py-2.5 rounded-lg transition-colors hover:bg-teal-700 disabled:opacity-40;
+  }
+
+  /* Secondary button — bordered, rounded */
+  .btn-secondary {
+    @apply bg-white text-gray-700 border border-gray-200 text-[11px] uppercase tracking-[0.14em] font-medium px-5 py-2.5 rounded-lg transition-colors hover:border-gray-400 hover:text-black;
+  }
+
+  /* Ghost / text link */
+  .btn-ghost {
+    @apply text-[#2A9D8F] text-[11px] uppercase tracking-[0.12em] font-medium hover:underline underline-offset-2 transition-all;
+  }
+
+  /* Section label */
+  .section-label {
+    @apply text-[10px] uppercase tracking-[0.18em] text-gray-400 font-medium;
+  }
+
+  /* Card */
+  .card {
+    @apply bg-white rounded-2xl shadow-sm border border-gray-100;
+  }
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.page-enter {
+  animation: fadeUp 0.2s ease forwards;
+}
+
+.sidebar-transition {
+  transition: transform 0.25s ease;
+}
+
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }

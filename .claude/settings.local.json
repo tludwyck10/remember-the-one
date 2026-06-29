@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install *)",
+      "Bash(which node *)",
+      "Bash(ls /usr/local/bin/ 2>/dev/null | grep -E 'node|npm' ; ls /opt/homebrew/bin/ 2>/dev/null | grep -E 'node|npm' ; find /Users/trevorludwyck -name \"npm\" -maxdepth 6 2>/dev/null | head -5)",
+      "Bash(ls /usr/local/bin/ /opt/homebrew/bin/ /opt/local/bin/ 2>/dev/null | head -40)",
+      "Bash(ls /pkg/env/global/bin/ | head -20)",
+      "Bash(ls /Applications/Cursor.app/Contents/Resources/app/resources/helpers/)",
+      "Bash(/Applications/Cursor.app/Contents/Resources/app/resources/helpers/node --version)",
+      "Bash(find /Applications/Cursor.app -name \"npm\" 2>/dev/null | head -3)",
+      "Bash(PATH=/usr/local/bin:/opt/homebrew/bin:__TRACKED_VAR__ npm install @supabase/supabase-js)",
+      "Bash(PATH=/usr/local/bin:/opt/homebrew/bin:__TRACKED_VAR__ npm install @supabase/supabase-js --ignore-scripts)",
+      "Bash(node -e ' *)"
+    ]
+  }
+}
