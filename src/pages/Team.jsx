@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Shield, Copy, Check, Users, Pencil, X, RefreshCw, Plus, MapPin, Trash2 } from 'lucide-react';
+import { Shield, Copy, Check, Users, Pencil, X, RefreshCw, Plus, MapPin, Trash2, Mail } from 'lucide-react';
 import Avatar from '../components/Avatar';
 import { useAuth } from '../context/AuthContext';
 import { usePeople } from '../context/PeopleContext';
@@ -162,12 +162,117 @@ function EditChurchModal({ church, onSave, onClose }) {
   );
 }
 
+// ─── Invite Modal ─────────────────────────────────────────────────────────────
+function InviteModal({ onClose, createInvite }) {
+  const [email, setEmail]     = useState('');
+  const [inviteLink, setInviteLink] = useState('');
+  const [copied, setCopied]   = useState(false);
+  const [error, setError]     = useState('');
+  const [loading, setLoading] = useState(false);
+
+  async function handleGenerate(e) {
+    e.preventDefault();
+    if (!email.trim()) { setError('Enter an email address.'); return; }
+    setLoading(true);
+    const { token, error: err } = await createInvite(email.trim());
+    setLoading(false);
+    if (err) { setError(err); return; }
+    setInviteLink(`${window.location.origin}?invite=${token}`);
+  }
+
+  function copyLink() {
+    navigator.clipboard.writeText(inviteLink);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2500);
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-6">
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div className="relative bg-white w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl overflow-hidden shadow-xl">
+        <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100">
+          <p className="text-[11px] uppercase tracking-[0.18em] font-medium text-gray-900">
+            Invite Team Member
+          </p>
+          <button onClick={onClose} className="text-gray-400 hover:text-black transition-colors">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="px-6 py-6 space-y-5">
+          {!inviteLink ? (
+            <form onSubmit={handleGenerate} className="space-y-5">
+              <div>
+                <label className="section-label block mb-2">Their Email Address</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={e => { setEmail(e.target.value); setError(''); }}
+                  placeholder="pastor@shoreline.city"
+                  autoFocus
+                  className="input-line"
+                />
+                <p className="text-[10px] text-gray-400 mt-1.5">
+                  A personal invite link will be generated for you to send them.
+                </p>
+              </div>
+              {error && (
+                <div className="bg-red-50 border border-red-100 rounded-xl px-4 py-3">
+                  <p className="text-xs text-red-600">{error}</p>
+                </div>
+              )}
+              <div className="flex gap-3">
+                <button type="button" onClick={onClose} className="btn-secondary flex-1">Cancel</button>
+                <button type="submit" disabled={loading} className="btn-primary flex-1 disabled:opacity-60">
+                  {loading ? 'Generating...' : 'Generate Invite Link'}
+                </button>
+              </div>
+            </form>
+          ) : (
+            <div className="space-y-5">
+              <div className="bg-teal-50 border border-teal-100 rounded-xl px-4 py-3">
+                <p className="text-xs text-teal-700 font-medium">Invite link created for {email}</p>
+                <p className="text-[10px] text-teal-600 mt-0.5">
+                  Copy and send this link to them. When they open it, they'll skip the join code and go straight to setting up their profile.
+                </p>
+              </div>
+              <div>
+                <label className="section-label block mb-2">Invite Link</label>
+                <div className="flex gap-2">
+                  <input
+                    readOnly
+                    value={inviteLink}
+                    className="input-line flex-1 text-xs text-gray-500 truncate"
+                  />
+                  <button type="button" onClick={copyLink}
+                    className="btn-primary flex items-center gap-1.5 flex-shrink-0">
+                    {copied
+                      ? <><Check className="w-3.5 h-3.5" /> Copied!</>
+                      : <><Copy className="w-3.5 h-3.5" /> Copy</>
+                    }
+                  </button>
+                </div>
+              </div>
+              <div className="flex gap-3">
+                <button type="button" onClick={() => { setInviteLink(''); setEmail(''); }}
+                  className="btn-secondary flex-1">Invite Another</button>
+                <button type="button" onClick={onClose} className="btn-primary flex-1">Done</button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function Team() {
-  const { userProfile, church, teamMembers, updateChurch } = useAuth();
+  const { userProfile, church, teamMembers, updateChurch, createInvite } = useAuth();
   const { people } = usePeople();
   const [codeCopied, setCodeCopied]   = useState(false);
   const [showEdit, setShowEdit]       = useState(false);
+  const [showInvite, setShowInvite]   = useState(false);
 
   const isAdmin = userProfile?.role === 'admin';
 
@@ -190,6 +295,13 @@ export default function Team() {
         </div>
 
         <div className="flex items-center gap-3">
+          {/* Invite member — admin only */}
+          {isAdmin && (
+            <button onClick={() => setShowInvite(true)}
+              className="btn-secondary flex items-center gap-1.5">
+              <Mail className="w-3.5 h-3.5" /> Invite Member
+            </button>
+          )}
           {/* Edit church — admin only */}
           {isAdmin && (
             <button onClick={() => setShowEdit(true)}
@@ -288,6 +400,13 @@ export default function Team() {
           church={church}
           onSave={updateChurch}
           onClose={() => setShowEdit(false)}
+        />
+      )}
+
+      {showInvite && (
+        <InviteModal
+          createInvite={createInvite}
+          onClose={() => setShowInvite(false)}
         />
       )}
     </div>

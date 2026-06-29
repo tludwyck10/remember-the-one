@@ -139,6 +139,52 @@ export function AuthProvider({ children }) {
     return {};
   }
 
+  // ── Invites ───────────────────────────────────────────────────
+  async function createInvite(email) {
+    if (!church?.id) return { error: 'No church found' };
+    const token = Math.random().toString(36).substring(2, 8) +
+                  Math.random().toString(36).substring(2, 8);
+    const { error } = await supabase
+      .from('church_invites')
+      .insert({ church_id: church.id, email: email.toLowerCase().trim(), token });
+    if (error) return { error: error.message };
+    return { token };
+  }
+
+  async function lookupInvite(token) {
+    const { data, error } = await supabase
+      .from('church_invites')
+      .select('*, churches(id, name, campuses)')
+      .eq('token', token)
+      .eq('used', false)
+      .maybeSingle();
+    if (error || !data) return { error: 'Invite not found or already used.' };
+    return { invite: data };
+  }
+
+  async function joinByInvite(token, profileData) {
+    const { data: { session: s } } = await supabase.auth.getSession();
+    if (!s) return { error: 'Not authenticated' };
+
+    const { data: invite } = await supabase
+      .from('church_invites')
+      .select('church_id')
+      .eq('token', token)
+      .eq('used', false)
+      .maybeSingle();
+    if (!invite) return { error: 'Invite not found or already used.' };
+
+    const { error: profileErr } = await supabase
+      .from('user_profiles')
+      .insert({ id: s.user.id, church_id: invite.church_id, role: 'pastor', email: s.user.email, ...profileData });
+    if (profileErr) return { error: profileErr.message };
+
+    await supabase.from('church_invites').update({ used: true }).eq('token', token);
+    sessionStorage.removeItem('inviteToken');
+    await fetchProfile(s.user.id);
+    return {};
+  }
+
   async function lookupChurch(joinCode) {
     const { data, error } = await supabase
       .from('churches')
@@ -189,6 +235,9 @@ export function AuthProvider({ children }) {
       createChurch,
       joinChurch,
       lookupChurch,
+      createInvite,
+      lookupInvite,
+      joinByInvite,
       updateUserProfile,
       updateChurch,
       refreshProfile: () => session && fetchProfile(session.user.id),

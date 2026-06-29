@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Church, Users, ArrowRight, MapPin, ChevronDown, Check } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
@@ -69,8 +69,8 @@ function ProfileFields({ profile, onChange, campuses }) {
 }
 
 export default function Onboarding() {
-  const { createChurch, joinChurch, lookupChurch, signOut } = useAuth();
-  const [step, setStep]     = useState('choose'); // 'choose' | 'register' | 'join'
+  const { createChurch, joinChurch, lookupChurch, lookupInvite, joinByInvite, signOut } = useAuth();
+  const [step, setStep]     = useState('choose'); // 'choose' | 'register' | 'join' | 'invited'
   const [error, setError]   = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -87,6 +87,30 @@ export default function Onboarding() {
   const [joinCode, setJoinCode]       = useState('');
   const [foundChurch, setFoundChurch] = useState(null); // { id, name, campuses }
   const [lookingUp, setLookingUp]     = useState(false);
+
+  // Invite state
+  const [inviteToken, setInviteToken]   = useState('');
+  const [inviteChurch, setInviteChurch] = useState(null); // { id, name, campuses }
+
+  // On mount: check for invite token in sessionStorage
+  useEffect(() => {
+    const token = sessionStorage.getItem('inviteToken');
+    if (!token) return;
+    setInviteToken(token);
+    setStep('loading-invite');
+    lookupInvite(token).then(({ invite, error: err }) => {
+      if (err || !invite) {
+        sessionStorage.removeItem('inviteToken');
+        setStep('choose');
+        setError('This invite link is invalid or has already been used.');
+        return;
+      }
+      const church = invite.churches;
+      setInviteChurch(church);
+      if (church.campuses?.length > 0) setP('campus', church.campuses[0]);
+      setStep('invited');
+    });
+  }, []);
 
   function setP(field, val) { setProfile(p => ({ ...p, [field]: val })); setError(''); }
 
@@ -138,6 +162,14 @@ export default function Onboarding() {
     if (!foundChurch)                  { setError('Enter a valid 6-character join code.'); return; }
     setLoading(true);
     const { error: err } = await joinChurch(joinCode, profile);
+    if (err) { setError(err); setLoading(false); }
+  }
+
+  async function handleJoinByInvite(e) {
+    e.preventDefault();
+    if (!profile.first_name.trim()) { setError('Enter your first name.'); return; }
+    setLoading(true);
+    const { error: err } = await joinByInvite(inviteToken, profile);
     if (err) { setError(err); setLoading(false); }
   }
 
@@ -313,6 +345,38 @@ export default function Onboarding() {
                 {loading ? 'Joining...' : 'Join Church'}
               </button>
             </div>
+          </form>
+        )}
+
+        {/* Loading invite */}
+        {step === 'loading-invite' && (
+          <div className="card p-8 text-center">
+            <p className="text-sm text-gray-500">Checking your invite...</p>
+          </div>
+        )}
+
+        {/* Invited flow */}
+        {step === 'invited' && inviteChurch && (
+          <form onSubmit={handleJoinByInvite} className="card p-6 space-y-6">
+            <div className="bg-teal-50 border border-teal-100 rounded-xl px-4 py-3 flex items-center gap-3">
+              <Check className="w-4 h-4 text-teal-500 flex-shrink-0" />
+              <div>
+                <p className="text-xs font-semibold text-teal-800">You've been invited!</p>
+                <p className="text-[11px] text-teal-600 mt-0.5">Joining: {inviteChurch.name}</p>
+              </div>
+            </div>
+            <div>
+              <p className="section-label mb-3">Your Info</p>
+              <ProfileFields profile={profile} onChange={setP} campuses={inviteChurch.campuses} />
+            </div>
+            {error && (
+              <div className="bg-red-50 border border-red-100 rounded-xl px-4 py-3">
+                <p className="text-xs text-red-600">{error}</p>
+              </div>
+            )}
+            <button type="submit" disabled={loading} className="btn-primary w-full justify-center disabled:opacity-60">
+              {loading ? 'Joining...' : `Join ${inviteChurch.name}`}
+            </button>
           </form>
         )}
 

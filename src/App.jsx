@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
@@ -59,6 +59,18 @@ function AppShell() {
 
 function AuthGate() {
   const { session, userProfile, authLoading } = useAuth();
+
+  // Capture ?invite=TOKEN from URL and store it so Onboarding can read it
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const token  = params.get('invite');
+    if (token) {
+      sessionStorage.setItem('inviteToken', token);
+      // Clean the token out of the URL without a page reload
+      const clean = window.location.pathname;
+      window.history.replaceState({}, '', clean);
+    }
+  }, []);
 
   if (authLoading) return <LoadingScreen />;
   if (!session)    return <AuthPage />;
