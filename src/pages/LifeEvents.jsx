@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Plus, Search, X, Heart, Briefcase, Users, Church, Star, Leaf, CloudRain, MoreHorizontal } from 'lucide-react';
 import Avatar from '../components/Avatar';
 import { usePeople } from '../context/PeopleContext';
+import { useAuth } from '../context/AuthContext';
 
 const CATEGORIES = ['Family', 'Career', 'Health', 'Ministry', 'Church', 'Faith', 'Loss', 'Other'];
 
@@ -140,14 +141,16 @@ function AddEventModal({ people, onSave, onClose }) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function LifeEvents() {
   const { people, addLifeEvent } = usePeople();
+  const { userProfile } = useAuth();
+  const myPeople = people.filter(p => p.pastorId === userProfile?.id);
   const [query, setQuery]         = useState('');
   const [catFilter, setCatFilter] = useState('All');
   const [personFilter, setPersonFilter] = useState('All');
   const [showModal, setShowModal] = useState(false);
 
-  // Flatten all life events from all people
+  // Flatten life events from my contacts only
   const allEvents = useMemo(() => {
-    return people
+    return myPeople
       .flatMap(p =>
         (p.lifeEvents || []).map(ev => ({
           ...ev,
@@ -161,8 +164,8 @@ export default function LifeEvents() {
   // People who have at least one event (for filter pills)
   const peopleWithEvents = useMemo(() => {
     const ids = new Set(allEvents.map(ev => ev.personId));
-    return people.filter(p => ids.has(p.id));
-  }, [allEvents, people]);
+    return myPeople.filter(p => ids.has(p.id));
+  }, [allEvents, myPeople]);
 
   const filtered = allEvents.filter(ev => {
     const matchCat    = catFilter === 'All'  || ev.category === catFilter;
@@ -341,7 +344,7 @@ export default function LifeEvents() {
 
       {showModal && (
         <AddEventModal
-          people={people}
+          people={myPeople}
           onSave={handleSave}
           onClose={() => setShowModal(false)}
         />

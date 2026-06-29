@@ -108,7 +108,7 @@ export default function People() {
   const { people, addPerson }    = usePeople();
   const { userProfile, teamMembers } = useAuth();
   const [circleFilter, setCircleFilter] = useState('All');
-  const [ownerFilter, setOwnerFilter]   = useState('all');  // 'all' | 'mine'
+  const [ownerFilter, setOwnerFilter]   = useState('mine');  // 'all' | 'mine'
   const [query, setQuery]               = useState('');
   const [showModal, setShowModal]       = useState(false);
   const navigate = useNavigate();

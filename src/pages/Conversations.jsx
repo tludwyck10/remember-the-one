@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Plus, Search, X, MessageSquare } from 'lucide-react';
 import Avatar from '../components/Avatar';
 import { usePeople } from '../context/PeopleContext';
+import { useAuth } from '../context/AuthContext';
 
 // ─── Modal ────────────────────────────────────────────────────────────────────
 function Modal({ title, onClose, children }) {
@@ -90,21 +91,25 @@ function LogConversationModal({ people, onSave, onClose }) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function Conversations() {
   const { people, addConversation } = usePeople();
+  const { userProfile } = useAuth();
   const [showModal, setShowModal] = useState(false);
   const [query, setQuery]         = useState('');
   const [personFilter, setPersonFilter] = useState('all');
 
-  // Flatten all conversations with person info, sort newest first
+  const myPeople = people.filter(p => p.pastorId === userProfile?.id);
+
+  // Flatten conversations from my contacts only, sort newest first
   const allConversations = useMemo(() =>
-    people
+    myPeople
       .flatMap(p => p.conversations.map(c => ({
         ...c,
         personId:   p.id,
         personName: p.name,
+        personAvatarUrl: p.avatarUrl,
         circle:     p.circle,
       })))
       .sort((a, b) => b.date.localeCompare(a.date)),
-    [people]
+    [myPeople]
   );
 
   const filtered = allConversations.filter(c => {
@@ -133,7 +138,7 @@ export default function Conversations() {
         <div>
           <p className="section-label mb-1">Ministry</p>
           <h1 className="text-2xl font-light text-gray-900 tracking-tight">Conversations</h1>
-          <p className="text-xs text-gray-400 mt-1">{allConversations.length} logged across {people.length} people</p>
+          <p className="text-xs text-gray-400 mt-1">{allConversations.length} logged across {myPeople.length} contacts</p>
         </div>
         <button onClick={() => setShowModal(true)} className="btn-primary flex items-center gap-2">
           <Plus className="w-3.5 h-3.5" /> Log Conversation
@@ -161,7 +166,7 @@ export default function Conversations() {
             }`}>
             All
           </button>
-          {people.map(p => (
+          {myPeople.map(p => (
             <button key={p.id}
               onClick={() => setPersonFilter(personFilter === p.id ? 'all' : p.id)}
               className={`px-3 py-1.5 text-[10px] uppercase tracking-[0.1em] font-medium rounded-lg transition-colors ${
@@ -207,7 +212,7 @@ export default function Conversations() {
 
       {showModal && (
         <LogConversationModal
-          people={people}
+          people={myPeople}
           onSave={handleSave}
           onClose={() => setShowModal(false)}
         />

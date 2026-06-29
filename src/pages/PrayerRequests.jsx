@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Plus, Check, X } from 'lucide-react';
 import Avatar from '../components/Avatar';
 import { usePeople } from '../context/PeopleContext';
+import { useAuth } from '../context/AuthContext';
 
 const statusFilters = ['All', 'Active', 'Ongoing', 'Answered'];
 
@@ -102,11 +103,14 @@ function AddPrayerModal({ people, onSave, onClose }) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function PrayerRequests() {
   const { people, addPrayerRequest, markPrayerAnswered } = usePeople();
+  const { userProfile } = useAuth();
   const [filter, setFilter]     = useState('All');
   const [showModal, setShowModal] = useState(false);
 
-  const prayers = people.flatMap(p =>
-    p.prayerRequests.map(pr => ({ ...pr, personId: p.id, personName: p.name }))
+  const myPeople = people.filter(p => p.pastorId === userProfile?.id);
+
+  const prayers = myPeople.flatMap(p =>
+    p.prayerRequests.map(pr => ({ ...pr, personId: p.id, personName: p.name, personAvatarUrl: p.avatarUrl }))
   );
 
   const filtered = filter === 'All' ? prayers : prayers.filter(p => p.status === filter);
@@ -223,7 +227,7 @@ export default function PrayerRequests() {
 
       {showModal && (
         <AddPrayerModal
-          people={people}
+          people={myPeople}
           onSave={handleSave}
           onClose={() => setShowModal(false)}
         />

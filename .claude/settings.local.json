@@ -11,7 +11,8 @@
       "Bash(find /Applications/Cursor.app -name \"npm\" 2>/dev/null | head -3)",
       "Bash(PATH=/usr/local/bin:/opt/homebrew/bin:__TRACKED_VAR__ npm install @supabase/supabase-js)",
       "Bash(PATH=/usr/local/bin:/opt/homebrew/bin:__TRACKED_VAR__ npm install @supabase/supabase-js --ignore-scripts)",
-      "Bash(node -e ' *)"
+      "Bash(node -e ' *)",
+      "Bash(node -e \"console.log\\(process.version\\)\")"
     ]
   }
 }

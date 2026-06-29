@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Plus, Check, X, LayoutList, Columns } from 'lucide-react';
 import { useTasks } from '../context/TasksContext';
 import { usePeople } from '../context/PeopleContext';
+import { useAuth } from '../context/AuthContext';
 
 const categories = ['Due Today', 'This Week', 'Overdue', 'Completed'];
 
@@ -176,16 +177,20 @@ function AddTaskModal({ people, onSave, onClose }) {
 export default function Tasks() {
   const { tasks, markComplete, addTask } = useTasks();
   const { people } = usePeople();
+  const { userProfile } = useAuth();
   const [view, setView]         = useState('list');
   const [showModal, setShowModal] = useState(false);
 
+  const myTasks  = tasks.filter(t => t.pastorId === userProfile?.id);
+  const myPeople = people.filter(p => p.pastorId === userProfile?.id);
+
   const grouped = categories.reduce((acc, cat) => {
-    acc[cat] = tasks.filter(t => t.category === cat);
+    acc[cat] = myTasks.filter(t => t.category === cat);
     return acc;
   }, {});
 
-  const overdue   = tasks.filter(t => t.category === 'Overdue').length;
-  const completed = tasks.filter(t => t.category === 'Completed').length;
+  const overdue   = myTasks.filter(t => t.category === 'Overdue').length;
+  const completed = myTasks.filter(t => t.category === 'Completed').length;
 
   function handleSave(form) {
     const person = people.find(p => p.id === form.personId);
@@ -212,7 +217,7 @@ export default function Tasks() {
           <p className="section-label mb-1">Ministry</p>
           <h1 className="text-2xl font-light text-gray-900 tracking-tight">Follow-Up Tasks</h1>
           <p className="text-xs text-gray-400 mt-1">
-            {completed}/{tasks.length} completed
+            {completed}/{myTasks.length} completed
             {overdue > 0 && <span className="text-red-400"> · {overdue} overdue</span>}
           </p>
         </div>
@@ -331,7 +336,7 @@ export default function Tasks() {
 
       {showModal && (
         <AddTaskModal
-          people={people}
+          people={myPeople}
           onSave={handleSave}
           onClose={() => setShowModal(false)}
         />
