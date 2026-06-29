@@ -36,7 +36,7 @@ export default function TeamMember() {
         </Link>
 
         <div className="flex items-center gap-5">
-          <Avatar name={fullName} size="xl" />
+          <Avatar name={fullName} avatarUrl={member.avatar_url} size="xl" />
           <div>
             <div className="flex items-center gap-2.5 flex-wrap">
               <h1 className="text-2xl font-light text-gray-900">{displayName}</h1>

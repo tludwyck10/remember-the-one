@@ -214,7 +214,7 @@ export default function People() {
             <div key={person.id}
               className="card grid grid-cols-[1fr_160px_120px_80px_60px] gap-4 items-center px-5 py-4 hover:shadow-md transition-all group cursor-pointer">
               <div className="flex items-center gap-4 min-w-0">
-                <Avatar name={person.name} size="md" />
+                <Avatar name={person.name} avatarUrl={person.avatarUrl} size="md" />
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-gray-900 truncate">{person.name}</p>
                   <p className="text-[10px] text-gray-400 mt-0.5">

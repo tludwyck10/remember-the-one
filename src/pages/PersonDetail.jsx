@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Phone, Mail, MapPin, Plus, X, Check, Pencil, Trash2, ChevronLeft } from 'lucide-react';
+import { ArrowLeft, Phone, Mail, MapPin, Plus, X, Check, Pencil, Trash2, ChevronLeft, Camera } from 'lucide-react';
 import Avatar from '../components/Avatar';
 import Badge from '../components/Badge';
 import { usePeople } from '../context/PeopleContext';
 import { useTasks } from '../context/TasksContext';
+import { uploadPhoto } from '../lib/uploadPhoto';
 
 const tabs = ['Overview', 'Conversations', 'Prayer Requests', 'Life Events'];
 
@@ -523,8 +524,19 @@ export default function PersonDetail() {
   const { tasks } = useTasks();
   const person = people.find(p => p.id === id);
 
-  const [activeTab, setActiveTab] = useState('Overview');
-  const [modal, setModal] = useState(null);
+  const [activeTab, setActiveTab]         = useState('Overview');
+  const [modal, setModal]                 = useState(null);
+  const [photoUploading, setPhotoUploading] = useState(false);
+
+  async function handlePhotoUpload(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setPhotoUploading(true);
+    const { url, error } = await uploadPhoto(file, `contacts/${id}`);
+    if (!error) updatePerson(id, { avatarUrl: url });
+    setPhotoUploading(false);
+    e.target.value = '';
+  }
 
   if (!person) {
     return (
@@ -563,7 +575,16 @@ export default function PersonDetail() {
       {/* Profile header */}
       <div className="bg-white px-8 py-10 border-b border-gray-100">
         <div className="flex items-start gap-6">
-          <Avatar name={person.name} size="xl" />
+          <label className="relative group cursor-pointer flex-shrink-0">
+            <Avatar name={person.name} avatarUrl={person.avatarUrl} size="xl" />
+            <div className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+              {photoUploading
+                ? <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                : <Camera className="w-4 h-4 text-white" />
+              }
+            </div>
+            <input type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
+          </label>
           <div className="flex-1">
             <h1 className="text-2xl font-light text-black tracking-tight">{person.name}</h1>
             <Badge label={person.circle} />

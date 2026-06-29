@@ -35,10 +35,14 @@ export default function Header({ onMenuClick }) {
             </span>
           </div>
         )}
-        <Link to="/profile"
-          title="Edit Profile"
-          className="w-8 h-8 rounded-full bg-[#1B2A4A] flex items-center justify-center text-white text-[10px] font-bold tracking-wide hover:bg-[#2A9D8F] transition-colors">
-          {initials}
+        <Link to="/profile" title="Edit Profile"
+          className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 hover:ring-2 hover:ring-[#2A9D8F] transition-all">
+          {profile.avatarUrl
+            ? <img src={profile.avatarUrl} alt="Profile" className="w-full h-full object-cover" />
+            : <div className="w-full h-full bg-[#1B2A4A] flex items-center justify-center text-white text-[10px] font-bold tracking-wide">
+                {initials}
+              </div>
+          }
         </Link>
       </div>
     </header>

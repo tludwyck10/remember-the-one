@@ -18,6 +18,7 @@ export function useProfile() {
     phone:     userProfile?.phone      || '',
     email:     userProfile?.email      || '',
     bio:       userProfile?.bio        || '',
+    avatarUrl: userProfile?.avatar_url || null,
   };
 
   return { profile, updateProfile: updateUserProfile };

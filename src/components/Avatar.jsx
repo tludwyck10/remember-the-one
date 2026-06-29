@@ -17,20 +17,33 @@ function getInitials(name) {
   return name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
 }
 
-export default function Avatar({ name, size = 'md' }) {
-  const { bg, text } = getColor(name);
-  const initials = getInitials(name);
+const sizeClasses = {
+  xs: 'w-5 h-5 text-[8px]',
+  sm: 'w-8 h-8 text-[10px]',
+  md: 'w-9 h-9 text-[11px]',
+  lg: 'w-12 h-12 text-sm',
+  xl: 'w-16 h-16 text-base',
+};
 
-  const sizeClasses = {
-    xs: 'w-5 h-5 text-[8px] rounded-full',
-    sm: 'w-8 h-8 text-[10px] rounded-full',
-    md: 'w-9 h-9 text-[11px] rounded-full',
-    lg: 'w-12 h-12 text-sm rounded-full',
-    xl: 'w-16 h-16 text-base rounded-full',
-  };
+export default function Avatar({ name = '', avatarUrl, size = 'md' }) {
+  const cls = `${sizeClasses[size]} rounded-full flex-shrink-0 object-cover`;
+
+  if (avatarUrl) {
+    return (
+      <img
+        src={avatarUrl}
+        alt={name}
+        className={cls}
+        onError={e => { e.currentTarget.style.display = 'none'; e.currentTarget.nextSibling.style.display = 'flex'; }}
+      />
+    );
+  }
+
+  const { bg, text } = getColor(name || '?');
+  const initials = getInitials(name || '?');
 
   return (
-    <div className={`${sizeClasses[size]} ${bg} ${text} flex items-center justify-center font-semibold flex-shrink-0 tracking-wider`}>
+    <div className={`${sizeClasses[size]} rounded-full flex-shrink-0 ${bg} ${text} flex items-center justify-center font-semibold tracking-wider`}>
       {initials}
     </div>
   );

@@ -25,8 +25,9 @@ function dbToPerson(row) {
     lastContact:     row.last_contact || '',
     lastContactDays: row.last_contact_days || 0,
     growthAreas:     row.growth_areas || [],
-    pastorId:        row.pastor_id || null,
-    churchId:        row.church_id || null,
+    pastorId:        row.pastor_id  || null,
+    churchId:        row.church_id  || null,
+    avatarUrl:       row.avatar_url || null,
     prayerCount:     prayers.filter(p => p.status !== 'Answered').length,
     conversations:   (row.conversations || [])
       .map(c => ({ id: c.id, date: c.date, notes: c.notes }))
@@ -107,7 +108,8 @@ export function PeopleProvider({ children }) {
     if (changes.phone  !== undefined) dbChanges.phone  = changes.phone;
     if (changes.email  !== undefined) dbChanges.email  = changes.email;
     if (changes.campus !== undefined) dbChanges.campus = changes.campus;
-    if (changes.notes  !== undefined) dbChanges.notes  = changes.notes;
+    if (changes.notes     !== undefined) dbChanges.notes      = changes.notes;
+    if (changes.avatarUrl !== undefined) dbChanges.avatar_url = changes.avatarUrl;
 
     if (Object.keys(dbChanges).length === 0) return;
     const { error } = await supabase.from('people').update(dbChanges).eq('id', id);

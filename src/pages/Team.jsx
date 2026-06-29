@@ -188,7 +188,7 @@ export default function Team() {
               <Link key={member.id} to={`/team/${member.id}`}
                 className="card p-5 hover:shadow-md transition-all group block">
                 <div className="flex items-start gap-4 mb-4">
-                  <Avatar name={fullName} size="lg" />
+                  <Avatar name={fullName} avatarUrl={member.avatar_url} size="lg" />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="text-sm font-semibold text-gray-900 leading-snug">{displayName}</p>

@@ -152,6 +152,7 @@ export function AuthProvider({ children }) {
     if (data.phone     !== undefined) updates.phone      = data.phone;
     if (data.email     !== undefined) updates.email      = data.email;
     if (data.bio       !== undefined) updates.bio        = data.bio;
+    if (data.avatarUrl !== undefined) updates.avatar_url = data.avatarUrl;
 
     setUserProfile(prev => ({ ...prev, ...updates }));
 

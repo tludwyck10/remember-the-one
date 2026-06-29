@@ -76,8 +76,13 @@ export default function Sidebar({ open, onClose }) {
         <div className="px-3 py-3 border-t border-gray-100 space-y-1">
           <Link to="/profile" onClick={onClose}
             className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-100 transition-colors group">
-            <div className="w-7 h-7 rounded-full bg-[#1B2A4A] group-hover:bg-[#2A9D8F] flex items-center justify-center text-white text-[9px] font-bold tracking-wide transition-colors flex-shrink-0">
-              {profile.firstName?.[0]}{profile.lastName?.[0]}
+            <div className="w-7 h-7 rounded-full overflow-hidden flex-shrink-0">
+              {profile.avatarUrl
+                ? <img src={profile.avatarUrl} alt="Profile" className="w-full h-full object-cover" />
+                : <div className="w-full h-full bg-[#1B2A4A] group-hover:bg-[#2A9D8F] flex items-center justify-center text-white text-[9px] font-bold tracking-wide transition-colors">
+                    {profile.firstName?.[0]}{profile.lastName?.[0]}
+                  </div>
+              }
             </div>
             <div className="min-w-0">
               <p className="text-[11px] font-medium text-gray-700 truncate">{displayName || 'My Profile'}</p>

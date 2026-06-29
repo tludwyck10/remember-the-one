@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { Check, User, MapPin, Phone, Mail, Briefcase, ChevronDown, LogOut } from 'lucide-react';
+import { Check, User, MapPin, Phone, Mail, Briefcase, ChevronDown, LogOut, Camera } from 'lucide-react';
 import Avatar from '../components/Avatar';
 import { useProfile } from '../context/ProfileContext';
 import { useAuth } from '../context/AuthContext';
+import { uploadPhoto } from '../lib/uploadPhoto';
 
 const CAMPUSES = ['Frisco', 'Allen', 'McKinney', 'Prosper', 'Online'];
 
@@ -26,8 +27,22 @@ function Field({ label, icon: Icon, children }) {
 
 export default function Profile() {
   const { profile, updateProfile } = useProfile();
-  const { signOut, church }        = useAuth();
-  const [form, setForm] = useState({ ...profile });
+  const { signOut, church, session, updateUserProfile } = useAuth();
+  const [form, setForm]         = useState({ ...profile });
+  const [photoUploading, setPhotoUploading] = useState(false);
+  const [photoError, setPhotoError]         = useState('');
+
+  async function handlePhotoUpload(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setPhotoUploading(true);
+    setPhotoError('');
+    const { url, error } = await uploadPhoto(file, `pastors/${session.user.id}`);
+    if (error) setPhotoError('Upload failed. Make sure the "photos" storage bucket exists in Supabase.');
+    else await updateUserProfile({ avatarUrl: url });
+    setPhotoUploading(false);
+    e.target.value = '';
+  }
   const [saved, setSaved] = useState(false);
 
   function set(field, value) {
@@ -63,9 +78,22 @@ export default function Profile() {
         {/* Preview card */}
         <div className="card p-6 flex items-center gap-5"
           style={{ background: 'linear-gradient(135deg, #1B2A4A 0%, #2A9D8F 100%)' }}>
-          <div className="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center text-white text-xl font-semibold flex-shrink-0">
-            {form.firstName?.[0] ?? ''}{form.lastName?.[0] ?? ''}
-          </div>
+          <label className="relative group flex-shrink-0 cursor-pointer">
+            {profile.avatarUrl
+              ? <img src={profile.avatarUrl} alt="Profile"
+                  className="w-16 h-16 rounded-full object-cover block" />
+              : <div className="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center text-white text-xl font-semibold">
+                  {form.firstName?.[0] ?? ''}{form.lastName?.[0] ?? ''}
+                </div>
+            }
+            <div className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+              {photoUploading
+                ? <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                : <Camera className="w-4 h-4 text-white" />
+              }
+            </div>
+            <input type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
+          </label>
           <div>
             <p className="text-white text-lg font-light">{displayName || 'Your Name'}</p>
             <p className="text-white/60 text-[11px] uppercase tracking-[0.14em] mt-0.5">{form.role || 'Role'}</p>
@@ -75,6 +103,12 @@ export default function Profile() {
             </div>
           </div>
         </div>
+
+        {photoError && (
+          <div className="bg-red-50 border border-red-100 rounded-xl px-4 py-3">
+            <p className="text-xs text-red-600">{photoError}</p>
+          </div>
+        )}
 
         {/* Edit form */}
         <form onSubmit={handleSubmit} className="space-y-5">
