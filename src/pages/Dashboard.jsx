@@ -4,29 +4,34 @@ import Avatar from '../components/Avatar';
 import Badge from '../components/Badge';
 import { usePeople } from '../context/PeopleContext';
 import { useTasks } from '../context/TasksContext';
+import { useAuth } from '../context/AuthContext';
 
 export default function Dashboard() {
   const { people } = usePeople();
   const { tasks }  = useTasks();
+  const { userProfile } = useAuth();
 
-  const dueToday       = people.filter(p => p.lastContactDays <= 1).slice(0, 3);
-  const recentPrayers  = people
+  const myPeople = people.filter(p => p.pastorId === userProfile?.id);
+  const myTasks  = tasks.filter(t => t.pastorId === userProfile?.id);
+
+  const dueToday       = myPeople.filter(p => p.lastContactDays <= 1).slice(0, 3);
+  const recentPrayers  = myPeople
     .flatMap(p => p.prayerRequests.map(pr => ({ ...pr, personId: p.id, personName: p.name })))
     .filter(pr => pr.status !== 'Answered')
     .slice(0, 4);
-  const upcomingFollowUps = tasks
+  const upcomingFollowUps = myTasks
     .filter(t => t.category !== 'Completed' && t.category !== 'Overdue')
     .slice(0, 4);
 
-  const activePrayers = people
+  const activePrayers = myPeople
     .flatMap(p => p.prayerRequests)
     .filter(pr => pr.status !== 'Answered').length;
 
   const statConfig = [
-    { value: tasks.filter(t => t.category === 'Due Today').length,  label: 'Due Today',     sub: 'People to reach out to', icon: Users,         bg: 'bg-teal-50',  icon_cls: 'text-[#2A9D8F]', num_cls: 'text-[#2A9D8F]' },
-    { value: tasks.filter(t => t.category === 'Overdue').length,    label: 'Overdue',       sub: 'Need your attention',    icon: AlertTriangle, bg: 'bg-amber-50', icon_cls: 'text-amber-500', num_cls: 'text-amber-600' },
-    { value: tasks.filter(t => t.category === 'This Week').length,  label: 'Upcoming',      sub: 'Next 7 days',            icon: Calendar,      bg: 'bg-blue-50',  icon_cls: 'text-blue-500',  num_cls: 'text-blue-600'  },
-    { value: activePrayers,                                          label: 'Active Prayers',sub: 'People being lifted up', icon: Heart,         bg: 'bg-rose-50',  icon_cls: 'text-rose-400',  num_cls: 'text-rose-500'  },
+    { value: myTasks.filter(t => t.category === 'Due Today').length,  label: 'Due Today',     sub: 'People to reach out to', icon: Users,         bg: 'bg-teal-50',  icon_cls: 'text-[#2A9D8F]', num_cls: 'text-[#2A9D8F]' },
+    { value: myTasks.filter(t => t.category === 'Overdue').length,    label: 'Overdue',       sub: 'Need your attention',    icon: AlertTriangle, bg: 'bg-amber-50', icon_cls: 'text-amber-500', num_cls: 'text-amber-600' },
+    { value: myTasks.filter(t => t.category === 'This Week').length,  label: 'Upcoming',      sub: 'Next 7 days',            icon: Calendar,      bg: 'bg-blue-50',  icon_cls: 'text-blue-500',  num_cls: 'text-blue-600'  },
+    { value: activePrayers,                                            label: 'Active Prayers',sub: 'People being lifted up', icon: Heart,         bg: 'bg-rose-50',  icon_cls: 'text-rose-400',  num_cls: 'text-rose-500'  },
   ];
 
   return (
@@ -96,9 +101,9 @@ export default function Dashboard() {
             <p className="text-sm font-semibold text-gray-800 mb-4">Circle Overview</p>
             <div className="space-y-4">
               {[
-                { label: 'Inner Circle',     count: people.filter(p => p.circle === 'Inner Circle').length,     max: 5,  color: 'bg-amber-400' },
-                { label: 'Growth Circle',    count: people.filter(p => p.circle === 'Growth Circle').length,    max: 12, color: 'bg-[#2A9D8F]' },
-                { label: 'Community Circle', count: people.filter(p => p.circle === 'Community Circle').length, max: 20, color: 'bg-blue-400' },
+                { label: 'Inner Circle',     count: myPeople.filter(p => p.circle === 'Inner Circle').length,     max: 5,  color: 'bg-amber-400' },
+                { label: 'Growth Circle',    count: myPeople.filter(p => p.circle === 'Growth Circle').length,    max: 12, color: 'bg-[#2A9D8F]' },
+                { label: 'Community Circle', count: myPeople.filter(p => p.circle === 'Community Circle').length, max: 20, color: 'bg-blue-400' },
               ].map(item => (
                 <div key={item.label}>
                   <div className="flex justify-between mb-1.5">

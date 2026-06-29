@@ -1,19 +1,28 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Mail } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 export default function AuthPage() {
   const { signIn, signUp } = useAuth();
   const navigate = useNavigate();
-  const [tab, setTab]         = useState('login');
-  const [email, setEmail]     = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError]     = useState('');
-  const [loading, setLoading] = useState(false);
+  const [tab, setTab]             = useState('login');
+  const [email, setEmail]         = useState('');
+  const [password, setPassword]   = useState('');
+  const [confirm, setConfirm]     = useState('');
+  const [error, setError]         = useState('');
+  const [loading, setLoading]     = useState(false);
+  const [checkEmail, setCheckEmail] = useState(false);
 
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
+
+    if (tab === 'signup' && password !== confirm) {
+      setError('Passwords do not match.');
+      return;
+    }
+
     setLoading(true);
 
     if (tab === 'login') {
@@ -22,10 +31,40 @@ export default function AuthPage() {
       navigate('/', { replace: true });
     } else {
       const { error: err } = await signUp(email, password);
-      if (err) setError(err.message);
-      // On success the auth listener fires → Onboarding renders automatically
+      if (err) { setError(err.message); setLoading(false); return; }
+      setCheckEmail(true);
     }
     setLoading(false);
+  }
+
+  // ── Check-your-email screen ────────────────────────────────────────────────
+  if (checkEmail) {
+    return (
+      <div className="min-h-screen bg-[#F5F4F1] flex items-center justify-center px-6">
+        <div className="w-full max-w-sm text-center">
+          <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6"
+            style={{ background: 'linear-gradient(135deg, #1B2A4A 0%, #2A9D8F 100%)' }}>
+            <Mail className="w-7 h-7 text-white" />
+          </div>
+          <h2 className="text-2xl font-light text-gray-900 tracking-tight mb-2">Check your email</h2>
+          <p className="text-sm text-gray-500 leading-relaxed mb-1">
+            We sent a confirmation link to
+          </p>
+          <p className="text-sm font-medium text-gray-800 mb-6">{email}</p>
+          <p className="text-xs text-gray-400 leading-relaxed mb-8">
+            Click the link in the email to confirm your account, then come back here and sign in.
+          </p>
+          <button
+            onClick={() => { setCheckEmail(false); setTab('login'); setPassword(''); setConfirm(''); }}
+            className="btn-primary w-full justify-center">
+            Back to Sign In
+          </button>
+          <p className="text-[10px] text-gray-400 mt-4">
+            Didn't get it? Check your spam folder.
+          </p>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -64,7 +103,7 @@ export default function AuthPage() {
           {/* Tabs */}
           <div className="flex bg-gray-100 rounded-xl p-1 mb-8">
             {[['login', 'Sign In'], ['signup', 'Create Account']].map(([val, label]) => (
-              <button key={val} onClick={() => { setTab(val); setError(''); }}
+              <button key={val} onClick={() => { setTab(val); setError(''); setConfirm(''); }}
                 className={`flex-1 py-2 text-[11px] uppercase tracking-[0.12em] font-medium rounded-lg transition-colors ${
                   tab === val
                     ? 'bg-white text-gray-900 shadow-sm'
@@ -104,6 +143,20 @@ export default function AuthPage() {
               )}
             </div>
 
+            {tab === 'signup' && (
+              <div>
+                <label className="section-label block mb-2">Confirm Password</label>
+                <input
+                  type="password"
+                  value={confirm}
+                  onChange={e => { setConfirm(e.target.value); setError(''); }}
+                  placeholder="••••••••"
+                  required
+                  className="input-line"
+                />
+              </div>
+            )}
+
             {error && (
               <div className="bg-red-50 border border-red-100 rounded-xl px-4 py-3">
                 <p className="text-xs text-red-600">{error}</p>
@@ -120,7 +173,7 @@ export default function AuthPage() {
 
           {tab === 'signup' && (
             <p className="text-[10px] text-gray-400 text-center mt-6 leading-relaxed">
-              After creating your account you'll set up or join your church team.
+              After confirming your email you'll set up or join your church team.
             </p>
           )}
         </div>
