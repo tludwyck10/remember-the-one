@@ -42,14 +42,18 @@ function nextBirthdayOccurrence(birthday, now) {
   return candidate;
 }
 
-function isSameDay(a, b) {
-  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
-}
-
-function mostRecentReminder(tasks, personId, kind) {
-  return tasks
-    .filter(t => t.personId === personId && t.sourceType === 'reminder' && t.reminderKind === kind && t.dueAt)
-    .sort((a, b) => new Date(b.dueAt) - new Date(a.dueAt))[0];
+// True if any COMPLETED reminder of this kind already covers `year` — i.e. this
+// annual occurrence has already been handled and shouldn't be recreated yet.
+// `advanceDays` accounts for advance reminders, whose due date sits that many
+// days BEFORE the occurrence they're attached to (e.g. 7 for a week-early nudge).
+function hasCompletedForYear(tasks, personId, kind, year, advanceDays = 0) {
+  return tasks.some(t => {
+    if (t.personId !== personId || t.sourceType !== 'reminder' || t.reminderKind !== kind || !t.completed || !t.dueAt) {
+      return false;
+    }
+    const occurrence = advanceDays ? addDays(new Date(t.dueAt), advanceDays) : new Date(t.dueAt);
+    return occurrence.getFullYear() === year;
+  });
 }
 
 // Returns the single open (uncompleted) reminder task for a person, of a given kind if specified.
@@ -96,8 +100,7 @@ export function computeReminderActions(people, tasks, userId) {
         // If this occurrence's reminder was already completed (e.g. they
         // checked it off on the day itself), don't instantly recreate it —
         // roll forward to next year's instead.
-        const recent = mostRecentReminder(tasks, person.id, 'birthday');
-        if (recent?.completed && isSameDay(new Date(recent.dueAt), nextBirthday)) {
+        if (hasCompletedForYear(tasks, person.id, 'birthday', nextBirthday.getFullYear())) {
           nextBirthday = new Date(nextBirthday);
           nextBirthday.setFullYear(nextBirthday.getFullYear() + 1);
         }
@@ -115,13 +118,10 @@ export function computeReminderActions(people, tasks, userId) {
         if (!advanceTask) {
           // Same guard: if the advance heads-up for this occurrence was
           // already completed, wait for next year's rather than re-firing.
-          const recentAdvance = mostRecentReminder(tasks, person.id, 'birthday_advance');
-          if (recentAdvance?.completed) {
-            const impliedBirthday = addDays(new Date(recentAdvance.dueAt), BIRTHDAY_ADVANCE_DAYS);
-            if (isSameDay(impliedBirthday, nextBirthday)) {
-              advanceDue = addDays(nextBirthday, -BIRTHDAY_ADVANCE_DAYS);
-              advanceDue.setFullYear(advanceDue.getFullYear() + 1);
-            }
+          if (hasCompletedForYear(tasks, person.id, 'birthday_advance', nextBirthday.getFullYear(), BIRTHDAY_ADVANCE_DAYS)) {
+            const rolled = new Date(nextBirthday);
+            rolled.setFullYear(rolled.getFullYear() + 1);
+            advanceDue = addDays(rolled, -BIRTHDAY_ADVANCE_DAYS);
           }
           toCreate.push({ personId: person.id, personName: person.name, reminderKind: 'birthday_advance', dueAt: advanceDue });
         } else {
