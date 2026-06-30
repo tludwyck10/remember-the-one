@@ -1,7 +1,8 @@
 const variants = {
-  'Inner Circle':    'bg-amber-50 text-amber-700 border border-amber-200',
-  'Growth Circle':   'bg-teal-50 text-teal-700 border border-teal-200',
-  'Community Circle':'bg-blue-50 text-blue-700 border border-blue-200',
+  'Inner Circle':         'bg-amber-50 text-amber-700 border border-amber-200',
+  'Disciples':            'bg-teal-50 text-teal-700 border border-teal-200',
+  'Active Relationships': 'bg-blue-50 text-blue-700 border border-blue-200',
+  'New Connections':      'bg-purple-50 text-purple-700 border border-purple-200',
 };
 
 export default function Badge({ label }) {

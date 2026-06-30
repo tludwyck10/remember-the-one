@@ -1,20 +1,21 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, Plus, X } from 'lucide-react';
+import { Search, Plus, X, Archive } from 'lucide-react';
 import Avatar from '../components/Avatar';
 import Badge from '../components/Badge';
-import { usePeople } from '../context/PeopleContext';
+import { usePeople, CIRCLES, INNER_CIRCLE_CAP } from '../context/PeopleContext';
 import { useAuth } from '../context/AuthContext';
 
-const circleFilters = ['All', 'Inner Circle', 'Growth Circle', 'Community Circle'];
+const circleFilters = ['All', ...CIRCLES];
 
 const circleDesc = {
-  'Inner Circle':     'Closest disciples — deep, intentional relationship (up to 5)',
-  'Growth Circle':    'People being intentionally developed in their faith',
-  'Community Circle': 'Broader congregation connections',
+  'Inner Circle':         `Closest disciples — deep, intentional relationship (max ${INNER_CIRCLE_CAP})`,
+  'Disciples':            'People being intentionally developed in their faith',
+  'Active Relationships': 'Established relationships on a steady contact rhythm',
+  'New Connections':      'Newly added — gets a 2-step follow-up sequence',
 };
 
-const EMPTY_FORM = { name: '', circle: 'Growth Circle', phone: '', email: '', notes: '' };
+const EMPTY_FORM = { name: '', circle: 'New Connections', phone: '', email: '', notes: '' };
 
 function Modal({ title, onClose, children }) {
   return (
@@ -33,19 +34,24 @@ function Modal({ title, onClose, children }) {
   );
 }
 
-function AddPersonModal({ onClose, onSave }) {
+function AddPersonModal({ onClose, onSave, innerCircleCount }) {
   const [form, setForm] = useState(EMPTY_FORM);
   const [error, setError] = useState('');
+  const innerCircleFull = innerCircleCount >= INNER_CIRCLE_CAP;
 
   function set(field, value) {
+    if (field === 'circle' && value === 'Inner Circle' && innerCircleFull) {
+      setError(`Inner Circle is full (max ${INNER_CIRCLE_CAP}). Move someone out first.`);
+      return;
+    }
     setForm(prev => ({ ...prev, [field]: value }));
-    if (field === 'name') setError('');
+    if (field === 'name' || field === 'circle') setError('');
   }
 
   function handleSubmit(e) {
     e.preventDefault();
     if (!form.name.trim()) { setError('Name is required.'); return; }
-    onSave(form);
+    onSave(form, setError);
   }
 
   return (
@@ -59,18 +65,23 @@ function AddPersonModal({ onClose, onSave }) {
         </div>
 
         <div>
-          <label className="section-label block mb-3">Circle</label>
-          <div className="grid grid-cols-3 gap-2">
-            {['Inner Circle', 'Growth Circle', 'Community Circle'].map(c => (
-              <button key={c} type="button" onClick={() => set('circle', c)}
-                className={`py-2.5 text-[10px] uppercase tracking-[0.1em] font-medium rounded-lg border transition-all ${
-                  form.circle === c
-                    ? 'bg-[#2A9D8F] text-white border-[#2A9D8F]'
-                    : 'bg-white text-gray-500 border-gray-200 hover:border-[#2A9D8F] hover:text-[#2A9D8F]'
-                }`}>
-                {c}
-              </button>
-            ))}
+          <label className="section-label block mb-3">Tier</label>
+          <div className="grid grid-cols-2 gap-2">
+            {CIRCLES.map(c => {
+              const disabled = c === 'Inner Circle' && innerCircleFull && form.circle !== 'Inner Circle';
+              return (
+                <button key={c} type="button" onClick={() => set('circle', c)} disabled={disabled}
+                  className={`py-2.5 text-[10px] uppercase tracking-[0.1em] font-medium rounded-lg border transition-all ${
+                    form.circle === c
+                      ? 'bg-[#2A9D8F] text-white border-[#2A9D8F]'
+                      : disabled
+                        ? 'bg-gray-50 text-gray-300 border-gray-100 cursor-not-allowed'
+                        : 'bg-white text-gray-500 border-gray-200 hover:border-[#2A9D8F] hover:text-[#2A9D8F]'
+                  }`}>
+                  {c}
+                </button>
+              );
+            })}
           </div>
           <p className="text-[10px] text-gray-400 mt-2">{circleDesc[form.circle]}</p>
         </div>
@@ -109,15 +120,17 @@ export default function People() {
   const { userProfile, teamMembers } = useAuth();
   const [circleFilter, setCircleFilter] = useState('All');
   const [ownerFilter, setOwnerFilter]   = useState('mine');  // 'all' | 'mine'
+  const [showArchived, setShowArchived] = useState(false);
   const [query, setQuery]               = useState('');
   const [showModal, setShowModal]       = useState(false);
   const navigate = useNavigate();
 
   const filtered = people.filter(p => {
-    const matchCircle = circleFilter === 'All' || p.circle === circleFilter;
-    const matchOwner  = ownerFilter === 'mine' ? p.pastorId === userProfile?.id : true;
-    const matchQuery  = p.name.toLowerCase().includes(query.toLowerCase());
-    return matchCircle && matchOwner && matchQuery;
+    const matchCircle   = circleFilter === 'All' || p.circle === circleFilter;
+    const matchOwner    = ownerFilter === 'mine' ? p.pastorId === userProfile?.id : true;
+    const matchQuery    = p.name.toLowerCase().includes(query.toLowerCase());
+    const matchArchived = showArchived ? p.archived : !p.archived;
+    return matchCircle && matchOwner && matchQuery && matchArchived;
   });
 
   function getPastorName(pastorId) {
@@ -125,14 +138,17 @@ export default function People() {
     return m ? `${m.first_name} ${m.last_name}`.trim() : null;
   }
 
-  async function handleSave(formData) {
-    const newPerson = await addPerson(formData);
+  async function handleSave(formData, setError) {
+    const result = await addPerson(formData);
+    if (result?.error) { setError(result.error); return; }
     setShowModal(false);
-    navigate(`/people/${newPerson.id}`);
+    navigate(`/people/${result.id}`);
   }
 
-  const myCount    = people.filter(p => p.pastorId === userProfile?.id).length;
-  const showToggle = teamMembers.length > 1;
+  const myCount          = people.filter(p => p.pastorId === userProfile?.id).length;
+  const showToggle       = teamMembers.length > 1;
+  const archivedCount    = people.filter(p => p.archived && (ownerFilter === 'mine' ? p.pastorId === userProfile?.id : true)).length;
+  const innerCircleCount = people.filter(p => p.circle === 'Inner Circle' && p.pastorId === userProfile?.id).length;
 
   return (
     <div className="page-enter min-h-full">
@@ -173,20 +189,28 @@ export default function People() {
         </div>
 
         {/* Circle filter */}
-        <div className="flex gap-1">
-          {circleFilters.map(f => (
-            <button key={f} onClick={() => setCircleFilter(f)}
-              className={`px-3 py-1.5 text-[10px] uppercase tracking-[0.1em] font-medium rounded-lg transition-colors ${
-                circleFilter === f
-                  ? 'bg-[#2A9D8F] text-white'
-                  : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'
-              }`}>
-              {f}
-              <span className={`ml-1 ${circleFilter === f ? 'text-white/70' : 'text-gray-400'}`}>
-                ({f === 'All' ? people.length : people.filter(p => p.circle === f).length})
-              </span>
-            </button>
-          ))}
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div className="flex gap-1 flex-wrap">
+            {circleFilters.map(f => (
+              <button key={f} onClick={() => setCircleFilter(f)}
+                className={`px-3 py-1.5 text-[10px] uppercase tracking-[0.1em] font-medium rounded-lg transition-colors ${
+                  circleFilter === f
+                    ? 'bg-[#2A9D8F] text-white'
+                    : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'
+                }`}>
+                {f}
+                <span className={`ml-1 ${circleFilter === f ? 'text-white/70' : 'text-gray-400'}`}>
+                  ({f === 'All' ? people.filter(p => !p.archived).length : people.filter(p => p.circle === f && !p.archived).length})
+                </span>
+              </button>
+            ))}
+          </div>
+          <button onClick={() => setShowArchived(v => !v)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-[10px] uppercase tracking-[0.1em] font-medium rounded-lg transition-colors ${
+              showArchived ? 'bg-gray-700 text-white' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-700'
+            }`}>
+            <Archive className="w-3 h-3" /> Archived ({archivedCount})
+          </button>
         </div>
       </div>
 
@@ -242,7 +266,13 @@ export default function People() {
         })}
       </div>
 
-      {showModal && <AddPersonModal onClose={() => setShowModal(false)} onSave={handleSave} />}
+      {showModal && (
+        <AddPersonModal
+          onClose={() => setShowModal(false)}
+          onSave={handleSave}
+          innerCircleCount={innerCircleCount}
+        />
+      )}
     </div>
   );
 }

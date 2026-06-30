@@ -4,6 +4,9 @@ import { useAuth } from './AuthContext';
 
 const PeopleContext = createContext(null);
 
+export const CIRCLES = ['Inner Circle', 'Disciples', 'Active Relationships', 'New Connections'];
+export const INNER_CIRCLE_CAP = 5;
+
 function dbToPerson(row) {
   const prayers = (row.prayer_requests || []).map(p => ({
     id:         p.id,
@@ -24,10 +27,13 @@ function dbToPerson(row) {
     cllStage:        row.cll_stage || 'Belong',
     lastContact:     row.last_contact || '',
     lastContactDays: row.last_contact_days || 0,
+    lastContactedAt: row.last_contacted_at || null,
+    archived:        !!row.archived,
     growthAreas:     row.growth_areas || [],
     pastorId:        row.pastor_id  || null,
     churchId:        row.church_id  || null,
     avatarUrl:       row.avatar_url || null,
+    createdAt:       row.created_at || null,
     prayerCount:     prayers.filter(p => p.status !== 'Answered').length,
     conversations:   (row.conversations || [])
       .map(c => ({ id: c.id, date: c.date, notes: c.notes }))
@@ -37,6 +43,14 @@ function dbToPerson(row) {
       .map(e => ({ id: e.id, event: e.event, date: e.date, category: e.category }))
       .sort((a, b) => (b.date || '').localeCompare(a.date || '')),
   };
+}
+
+function friendlyError(error) {
+  if (!error) return null;
+  if (error.message?.includes('Inner Circle is full')) {
+    return 'Inner Circle is full (max 5). Move someone out first.';
+  }
+  return error.message;
 }
 
 export function PeopleProvider({ children }) {
@@ -72,7 +86,13 @@ export function PeopleProvider({ children }) {
 
   async function addPerson(formData) {
     const today = new Date().toISOString().split('T')[0];
+    const nowIso = new Date().toISOString();
     const id    = String(Date.now());
+
+    if (formData.circle === 'Inner Circle') {
+      const cnt = people.filter(p => p.circle === 'Inner Circle' && p.pastorId === userProfile?.id).length;
+      if (cnt >= INNER_CIRCLE_CAP) return { error: `Inner Circle is full (max ${INNER_CIRCLE_CAP}). Move someone out first.` };
+    }
 
     const row = {
       id,
@@ -85,21 +105,33 @@ export function PeopleProvider({ children }) {
       cll_stage:         'Belong',
       last_contact:      today,
       last_contact_days: 0,
+      last_contacted_at: nowIso,
       growth_areas:      [],
       church_id:         church?.id   || null,
       pastor_id:         userProfile?.id || null,
     };
 
-    const newPerson = dbToPerson({ ...row, conversations: [], prayer_requests: [], life_events: [] });
+    const newPerson = dbToPerson({ ...row, created_at: nowIso, conversations: [], prayer_requests: [], life_events: [] });
     setPeople(prev => [newPerson, ...prev]);
 
     const { error } = await supabase.from('people').insert(row);
-    if (error) console.error('Person insert error:', error);
+    if (error) {
+      setPeople(prev => prev.filter(p => p.id !== id));
+      return { error: friendlyError(error) };
+    }
 
     return newPerson;
   }
 
   async function updatePerson(id, changes) {
+    if (changes.circle === 'Inner Circle') {
+      const person = people.find(p => p.id === id);
+      if (person?.circle !== 'Inner Circle') {
+        const cnt = people.filter(p => p.circle === 'Inner Circle' && p.pastorId === userProfile?.id).length;
+        if (cnt >= INNER_CIRCLE_CAP) return { error: `Inner Circle is full (max ${INNER_CIRCLE_CAP}). Move someone out first.` };
+      }
+    }
+
     patchPerson(id, p => ({ ...p, ...changes }));
 
     const dbChanges = {};
@@ -110,16 +142,36 @@ export function PeopleProvider({ children }) {
     if (changes.campus !== undefined) dbChanges.campus = changes.campus;
     if (changes.notes     !== undefined) dbChanges.notes      = changes.notes;
     if (changes.avatarUrl !== undefined) dbChanges.avatar_url = changes.avatarUrl;
+    if (changes.archived  !== undefined) dbChanges.archived   = changes.archived;
 
-    if (Object.keys(dbChanges).length === 0) return;
+    if (Object.keys(dbChanges).length === 0) return {};
     const { error } = await supabase.from('people').update(dbChanges).eq('id', id);
-    if (error) console.error('Person update error:', error);
+    if (error) {
+      console.error('Person update error:', error);
+      return { error: friendlyError(error) };
+    }
+    return {};
   }
 
   async function deletePerson(id) {
     setPeople(prev => prev.filter(p => p.id !== id));
     const { error } = await supabase.from('people').delete().eq('id', id);
     if (error) console.error('Person delete error:', error);
+  }
+
+  async function markContacted(personId) {
+    const nowIso = new Date().toISOString();
+    const today  = nowIso.split('T')[0];
+    patchPerson(personId, p => ({
+      ...p,
+      lastContact:     today,
+      lastContactDays: 0,
+      lastContactedAt: nowIso,
+    }));
+    const { error } = await supabase.from('people')
+      .update({ last_contact: today, last_contact_days: 0, last_contacted_at: nowIso })
+      .eq('id', personId);
+    if (error) console.error('Mark contacted error:', error);
   }
 
   async function updateCllStage(personId, stage) {
@@ -130,11 +182,13 @@ export function PeopleProvider({ children }) {
   }
 
   async function addConversation(personId, conv) {
+    const nowIso = new Date().toISOString();
     patchPerson(personId, p => ({
       ...p,
       conversations:   [conv, ...p.conversations],
       lastContact:     conv.date,
       lastContactDays: 0,
+      lastContactedAt: nowIso,
     }));
 
     const { error } = await supabase.from('conversations').insert({
@@ -143,7 +197,7 @@ export function PeopleProvider({ children }) {
     if (error) console.error('Conversation insert error:', error);
 
     await supabase.from('people')
-      .update({ last_contact: conv.date, last_contact_days: 0 })
+      .update({ last_contact: conv.date, last_contact_days: 0, last_contacted_at: nowIso })
       .eq('id', personId);
   }
 
@@ -198,6 +252,8 @@ export function PeopleProvider({ children }) {
       category:  ev.category,
     });
     if (error) console.error('Life event insert error:', error);
+
+    return newEv;
   }
 
   return (
@@ -208,6 +264,7 @@ export function PeopleProvider({ children }) {
       updatePerson,
       deletePerson,
       updateCllStage,
+      markContacted,
       addConversation,
       addPrayerRequest,
       markPrayerAnswered,

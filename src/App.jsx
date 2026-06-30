@@ -22,11 +22,15 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { ProfileProvider } from './context/ProfileContext';
 import { PeopleProvider, usePeople } from './context/PeopleContext';
 import { TasksProvider, useTasks } from './context/TasksContext';
+import useReminderSync from './hooks/useReminderSync';
 
 function AppShell() {
-  const { loading: peopleLoading } = usePeople();
-  const { loading: tasksLoading }  = useTasks();
+  const { people, loading: peopleLoading } = usePeople();
+  const { tasks, loading: tasksLoading, addTask, updateTask, deleteTask } = useTasks();
+  const { userProfile } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  useReminderSync(people, tasks, { addTask, updateTask, deleteTask }, userProfile?.id);
 
   if (peopleLoading || tasksLoading) return <LoadingScreen />;
 

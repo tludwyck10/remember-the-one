@@ -12,7 +12,8 @@
       "Bash(PATH=/usr/local/bin:/opt/homebrew/bin:__TRACKED_VAR__ npm install @supabase/supabase-js)",
       "Bash(PATH=/usr/local/bin:/opt/homebrew/bin:__TRACKED_VAR__ npm install @supabase/supabase-js --ignore-scripts)",
       "Bash(node -e ' *)",
-      "Bash(node -e \"console.log\\(process.version\\)\")"
+      "Bash(node -e \"console.log\\(process.version\\)\")",
+      "Bash(pkill -f \"vite\")"
     ]
   }
 }

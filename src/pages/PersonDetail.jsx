@@ -3,11 +3,24 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Phone, Mail, MapPin, Plus, X, Check, Pencil, Trash2, ChevronLeft, Camera } from 'lucide-react';
 import Avatar from '../components/Avatar';
 import Badge from '../components/Badge';
-import { usePeople } from '../context/PeopleContext';
+import { usePeople, CIRCLES, INNER_CIRCLE_CAP } from '../context/PeopleContext';
 import { useTasks } from '../context/TasksContext';
+import { useAuth } from '../context/AuthContext';
 import { uploadPhoto } from '../lib/uploadPhoto';
+import { resolveTaskToggle } from '../lib/reminders';
 
-const tabs = ['Overview', 'Conversations', 'Prayer Requests', 'Life Events'];
+const tabs = ['Overview', 'Conversations', 'Prayer Requests', 'Life Events', 'Tasks'];
+
+function formatDue(dueAt) {
+  if (!dueAt) return null;
+  const due = new Date(dueAt);
+  const now = new Date();
+  const diffDays = Math.round((due.setHours(0,0,0,0) - new Date(now).setHours(0,0,0,0)) / 86400000);
+  if (diffDays === 0)  return { text: 'Due today',   overdue: false };
+  if (diffDays === 1)  return { text: 'Due tomorrow', overdue: false };
+  if (diffDays > 1)    return { text: `Due in ${diffDays}d`, overdue: false };
+  return { text: `Overdue ${Math.abs(diffDays)}d`, overdue: true };
+}
 
 const CLL_STAGES = ['Belong', 'Become', 'Build', 'Beyond'];
 
@@ -61,7 +74,7 @@ function Field({ label, children }) {
 }
 
 // ─── Edit Contact modal ───────────────────────────────────────────────────────
-function EditContactModal({ person, onSave, onDelete, onClose }) {
+function EditContactModal({ person, innerCircleCount, onSave, onDelete, onClose }) {
   const [form, setForm] = useState({
     name:   person.name,
     circle: person.circle,
@@ -72,16 +85,22 @@ function EditContactModal({ person, onSave, onDelete, onClose }) {
   });
   const [error, setError] = useState('');
   const [confirming, setConfirming] = useState(false);
+  const innerCircleFull = innerCircleCount >= INNER_CIRCLE_CAP && person.circle !== 'Inner Circle';
 
   function set(field, value) {
+    if (field === 'circle' && value === 'Inner Circle' && innerCircleFull) {
+      setError(`Inner Circle is full (max ${INNER_CIRCLE_CAP}). Move someone out first.`);
+      return;
+    }
     setForm(f => ({ ...f, [field]: value }));
-    if (field === 'name') setError('');
+    if (field === 'name' || field === 'circle') setError('');
   }
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
     if (!form.name.trim()) { setError('Name is required.'); return; }
-    onSave(form);
+    const result = await onSave(form);
+    if (result?.error) setError(result.error);
   }
 
   if (confirming) {
@@ -110,20 +129,33 @@ function EditContactModal({ person, onSave, onDelete, onClose }) {
           {error && <p className="text-[11px] text-red-500 mt-1">{error}</p>}
         </Field>
 
-        <Field label="Circle">
-          <div className="grid grid-cols-3 gap-2 mt-1">
-            {['Inner Circle', 'Growth Circle', 'Community Circle'].map(c => (
-              <button key={c} type="button" onClick={() => set('circle', c)}
-                className={`py-2.5 text-[10px] uppercase tracking-[0.1em] font-medium rounded-lg border transition-all ${
-                  form.circle === c
-                    ? 'bg-[#2A9D8F] text-white border-[#2A9D8F]'
-                    : 'bg-white text-gray-500 border-gray-200 hover:border-[#2A9D8F] hover:text-[#2A9D8F]'
-                }`}>
-                {c}
-              </button>
-            ))}
+        <Field label="Tier">
+          <div className="grid grid-cols-2 gap-2 mt-1">
+            {CIRCLES.map(c => {
+              const disabled = c === 'Inner Circle' && innerCircleFull;
+              return (
+                <button key={c} type="button" onClick={() => set('circle', c)} disabled={disabled}
+                  className={`py-2.5 text-[10px] uppercase tracking-[0.1em] font-medium rounded-lg border transition-all ${
+                    form.circle === c
+                      ? 'bg-[#2A9D8F] text-white border-[#2A9D8F]'
+                      : disabled
+                        ? 'bg-gray-50 text-gray-300 border-gray-100 cursor-not-allowed'
+                        : 'bg-white text-gray-500 border-gray-200 hover:border-[#2A9D8F] hover:text-[#2A9D8F]'
+                  }`}>
+                  {c}
+                </button>
+              );
+            })}
           </div>
         </Field>
+
+        {person.archived && (
+          <div className="bg-amber-50 border border-amber-100 rounded-xl px-4 py-3 flex items-center justify-between">
+            <p className="text-xs text-amber-700">This contact is archived.</p>
+            <button type="button" onClick={() => set('archived', false)}
+              className="text-[10px] font-medium text-amber-700 underline">Unarchive</button>
+          </div>
+        )}
 
         <div className="grid grid-cols-2 gap-6">
           <Field label="Phone">
@@ -350,12 +382,17 @@ function Overview({ person, upcomingTasks, onStageChange }) {
         <div className="py-6">
           <p className="section-label mb-4">Upcoming Tasks</p>
           <div className="space-y-3">
-            {upcomingTasks.map(t => (
-              <div key={t.id} className="flex items-center justify-between">
-                <p className="text-sm text-black">{t.label}</p>
-                <p className="text-xs text-gray-400">{t.date}{t.time && ` · ${t.time}`}</p>
-              </div>
-            ))}
+            {upcomingTasks.map(t => {
+              const due = formatDue(t.dueAt);
+              return (
+                <div key={t.id} className="flex items-center justify-between">
+                  <p className="text-sm text-black">{t.label}</p>
+                  {due && (
+                    <p className={`text-xs ${due.overdue ? 'text-red-400' : 'text-gray-400'}`}>{due.text}</p>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
@@ -424,7 +461,7 @@ function Conversations({ person, onAdd }) {
 }
 
 // ─── Prayer Requests ──────────────────────────────────────────────────────────
-function PrayerRequests({ person, onAdd, onMarkAnswered }) {
+function PrayerRequests({ person, onAdd, onMarkAnswered, onFollowUp }) {
   return (
     <div>
       <div className="flex justify-end py-4 border-b border-gray-100">
@@ -456,7 +493,7 @@ function PrayerRequests({ person, onAdd, onMarkAnswered }) {
                 )}
               </div>
             </div>
-            <div className="flex-shrink-0">
+            <div className="flex flex-col items-end gap-2 flex-shrink-0">
               {pr.status !== 'Answered' ? (
                 <button onClick={() => onMarkAnswered(pr.id)}
                   className="text-[10px] font-medium text-[#2A9D8F] hover:bg-teal-50 border border-teal-200 px-3 py-1.5 rounded-lg transition-colors">
@@ -465,6 +502,10 @@ function PrayerRequests({ person, onAdd, onMarkAnswered }) {
               ) : (
                 <span className="text-[10px] uppercase tracking-[0.1em] text-gray-400 bg-gray-100 px-2.5 py-1 rounded-full">Answered</span>
               )}
+              <button onClick={() => onFollowUp(pr)}
+                className="text-[10px] text-gray-400 hover:text-[#2A9D8F] transition-colors">
+                + Follow up on this
+              </button>
             </div>
           </div>
         ))}
@@ -474,7 +515,7 @@ function PrayerRequests({ person, onAdd, onMarkAnswered }) {
 }
 
 // ─── Life Events ──────────────────────────────────────────────────────────────
-function LifeEvents({ person, onAdd }) {
+function LifeEvents({ person, onAdd, onFollowUp }) {
   return (
     <div>
       <div className="flex justify-end py-4 border-b border-gray-100">
@@ -491,17 +532,168 @@ function LifeEvents({ person, onAdd }) {
 
       <div className="divide-y divide-[#E8E8E8]">
         {person.lifeEvents.map(ev => (
-          <div key={ev.id} className="py-5 flex items-center gap-6">
-            <div className="w-16 flex-shrink-0">
-              <p className="text-[10px] text-gray-400">{ev.date}</p>
+          <div key={ev.id} className="py-5 flex items-center justify-between gap-6">
+            <div className="flex items-center gap-6">
+              <div className="w-16 flex-shrink-0">
+                <p className="text-[10px] text-gray-400">{ev.date}</p>
+              </div>
+              <div className="w-px h-8 bg-[#E8E8E8] flex-shrink-0" />
+              <div>
+                <p className="text-sm text-black">{ev.event}</p>
+                <p className="text-[10px] uppercase tracking-[0.1em] text-gray-400 mt-0.5">{ev.category}</p>
+              </div>
             </div>
-            <div className="w-px h-8 bg-[#E8E8E8] flex-shrink-0" />
-            <div>
-              <p className="text-sm text-black">{ev.event}</p>
-              <p className="text-[10px] uppercase tracking-[0.1em] text-gray-400 mt-0.5">{ev.category}</p>
-            </div>
+            <button onClick={() => onFollowUp(ev)}
+              className="text-[10px] text-gray-400 hover:text-[#2A9D8F] transition-colors flex-shrink-0">
+              + Follow up on this
+            </button>
           </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Add Manual Task modal ────────────────────────────────────────────────────
+function AddTaskModal({ onSave, onClose }) {
+  const [form, setForm] = useState({ title: '', dueDate: '', notes: '' });
+  const [error, setError] = useState('');
+
+  function handleSubmit(e) {
+    e.preventDefault();
+    if (!form.title.trim()) { setError('Add a task title.'); return; }
+    onSave(form);
+  }
+
+  return (
+    <Modal title="Add Task" onClose={onClose}>
+      <form onSubmit={handleSubmit} className="space-y-7">
+        <Field label="Title">
+          <input type="text" autoFocus placeholder="e.g. Drop off a meal"
+            value={form.title}
+            onChange={e => { setForm(f => ({ ...f, title: e.target.value })); setError(''); }}
+            className="input-line" />
+          {error && <p className="text-[11px] text-red-500 mt-1">{error}</p>}
+        </Field>
+        <Field label="Due Date (optional)">
+          <input type="date" value={form.dueDate}
+            onChange={e => setForm(f => ({ ...f, dueDate: e.target.value }))}
+            className="input-line" />
+        </Field>
+        <Field label="Notes (optional)">
+          <textarea rows={3} value={form.notes}
+            onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
+            placeholder="Any context..." className="input-line resize-none" />
+        </Field>
+        <div className="flex gap-3">
+          <button type="button" onClick={onClose} className="btn-secondary flex-1">Cancel</button>
+          <button type="submit" className="btn-primary flex-1">Add Task</button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+// ─── Tasks tab ────────────────────────────────────────────────────────────────
+const SOURCE_LABEL = {
+  manual:         null,
+  reminder:       'Reminder',
+  prayer_request: 'From a prayer request',
+  life_event:     'From a life event',
+};
+
+function PersonTasksTab({ tasks, onAdd, onToggle, onSnooze, onDelete, onPromote, onArchive }) {
+  const open      = tasks.filter(t => !t.completed).sort((a, b) => new Date(a.dueAt || 0) - new Date(b.dueAt || 0));
+  const completed = tasks.filter(t => t.completed);
+
+  return (
+    <div>
+      <div className="flex justify-end py-4 border-b border-gray-100">
+        <button onClick={onAdd} className="btn-primary flex items-center gap-2">
+          <Plus className="w-3.5 h-3.5" /> Add Task
+        </button>
+      </div>
+
+      {tasks.length === 0 && (
+        <div className="py-16 text-center">
+          <p className="text-[11px] uppercase tracking-[0.14em] text-gray-400">No tasks yet</p>
+        </div>
+      )}
+
+      <div className="divide-y divide-[#E8E8E8]">
+        {open.map(t => {
+          const due = formatDue(t.dueAt);
+          const isPromote = t.reminderKind === 'promote_or_archive';
+          return (
+            <div key={t.id} className="py-5 flex items-start gap-4">
+              {!isPromote && (
+                <button onClick={() => onToggle(t.id)}
+                  className="mt-0.5 w-4 h-4 rounded border border-gray-300 flex-shrink-0 hover:border-[#2A9D8F] transition-colors" />
+              )}
+              <div className="flex-1 min-w-0">
+                <p className="text-sm text-black">{t.label}</p>
+                {t.notes && <p className="text-xs text-gray-500 mt-1">{t.notes}</p>}
+                <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                  {due && (
+                    <span className={`text-[10px] font-medium ${due.overdue ? 'text-red-500' : 'text-gray-400'}`}>
+                      {due.text}
+                    </span>
+                  )}
+                  {SOURCE_LABEL[t.sourceType] && (
+                    <>
+                      <span className="text-gray-300">·</span>
+                      <span className="text-[10px] uppercase tracking-[0.08em] text-gray-400">{SOURCE_LABEL[t.sourceType]}</span>
+                    </>
+                  )}
+                </div>
+                {isPromote && (
+                  <div className="flex gap-2 mt-3">
+                    <button onClick={() => onPromote(t.id)}
+                      className="text-[10px] font-medium text-[#2A9D8F] hover:bg-teal-50 border border-teal-200 px-3 py-1.5 rounded-lg transition-colors">
+                      Promote to Active Relationships
+                    </button>
+                    <button onClick={() => onArchive(t.id)}
+                      className="text-[10px] font-medium text-gray-500 hover:bg-gray-100 border border-gray-200 px-3 py-1.5 rounded-lg transition-colors">
+                      Archive
+                    </button>
+                  </div>
+                )}
+              </div>
+              {!isPromote && (
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  {t.sourceType === 'reminder' && (
+                    <div className="flex gap-1">
+                      {[1, 3, 7].map(d => (
+                        <button key={d} onClick={() => onSnooze(t.id, d)}
+                          className="text-[10px] text-gray-400 hover:text-[#2A9D8F] px-1.5 py-1 transition-colors">
+                          +{d}d
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {t.sourceType !== 'reminder' && (
+                    <button onClick={() => onDelete(t.id)}
+                      className="text-gray-300 hover:text-red-500 transition-colors p-1">
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+
+        {completed.length > 0 && (
+          <div className="pt-5">
+            <p className="section-label mb-3">Completed</p>
+            {completed.map(t => (
+              <div key={t.id} className="py-2 flex items-center gap-3">
+                <Check className="w-3.5 h-3.5 text-[#2A9D8F] flex-shrink-0" />
+                <p className="text-xs text-gray-400 line-through">{t.label}</p>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -520,9 +712,12 @@ export default function PersonDetail() {
     addPrayerRequest:   ctxAddPrayerRequest,
     markPrayerAnswered: ctxMarkPrayerAnswered,
     addLifeEvent:       ctxAddLifeEvent,
+    markContacted,
   } = usePeople();
-  const { tasks } = useTasks();
+  const { tasks, addTask, toggleComplete, snoozeTask, deleteTask } = useTasks();
+  const { userProfile } = useAuth();
   const person = people.find(p => p.id === id);
+  const innerCircleCount = people.filter(p => p.circle === 'Inner Circle' && p.pastorId === userProfile?.id).length;
 
   const [activeTab, setActiveTab]         = useState('Overview');
   const [modal, setModal]                 = useState(null);
@@ -547,16 +742,57 @@ export default function PersonDetail() {
     );
   }
 
-  const upcomingTasks = tasks.filter(t => t.personId === id && t.category !== 'Completed');
+  const upcomingTasks = tasks.filter(t => t.personId === id && !t.completed);
+  const personTasks   = tasks.filter(t => t.personId === id);
 
   const handlers = {
-    editSave:       (data)  => { updatePerson(id, data); setModal(null); },
+    editSave: async (data) => {
+      const result = await updatePerson(id, data);
+      if (!result?.error) setModal(null);
+      return result;
+    },
     delete:         ()      => { deletePerson(id); navigate('/people'); },
     addConversation:(conv)  => { ctxAddConversation(id, conv); setModal(null); },
     addPrayer:      (pr)    => { ctxAddPrayerRequest(id, pr); setModal(null); },
     markAnswered:   (pid)   => { ctxMarkPrayerAnswered(id, pid); },
     addLifeEvent:   (ev)    => { ctxAddLifeEvent(id, ev); setModal(null); },
     setStage:       (stage) => { updateCllStage(id, stage); },
+    addManualTask:  (form)  => {
+      addTask({
+        personId: id, personName: person.name,
+        label: form.title.trim(), notes: form.notes.trim(),
+        dueAt: form.dueDate || null, sourceType: 'manual',
+      });
+      setModal(null);
+    },
+    followUpOnPrayer:    (pr) => {
+      addTask({
+        personId: id, personName: person.name,
+        label: `Follow up: ${pr.request.slice(0, 60)}${pr.request.length > 60 ? '…' : ''}`,
+        sourceType: 'prayer_request', sourceId: pr.id,
+      });
+    },
+    followUpOnLifeEvent: (ev) => {
+      addTask({
+        personId: id, personName: person.name,
+        label: `Follow up: ${ev.event}`,
+        sourceType: 'life_event', sourceId: ev.id,
+      });
+    },
+    toggleTask: (taskId) => {
+      const task = personTasks.find(t => t.id === taskId);
+      if (task) resolveTaskToggle(task, { toggleComplete, markContacted });
+    },
+    snoozeTask: (taskId, days) => snoozeTask(taskId, days),
+    deleteTask: (taskId) => deleteTask(taskId),
+    promote: async (taskId) => {
+      await updatePerson(id, { circle: 'Active Relationships' });
+      await toggleComplete(taskId);
+    },
+    archive: async (taskId) => {
+      await updatePerson(id, { archived: true });
+      await toggleComplete(taskId);
+    },
   };
 
   return (
@@ -629,16 +865,27 @@ export default function PersonDetail() {
       <div className="px-8 pb-16 pt-2">
         {activeTab === 'Overview'        && <Overview person={person} upcomingTasks={upcomingTasks} onStageChange={handlers.setStage} />}
         {activeTab === 'Conversations'   && <Conversations person={person} onAdd={() => setModal('logConversation')} />}
-        {activeTab === 'Prayer Requests' && <PrayerRequests person={person} onAdd={() => setModal('addPrayer')} onMarkAnswered={handlers.markAnswered} />}
-        {activeTab === 'Life Events'     && <LifeEvents person={person} onAdd={() => setModal('addLifeEvent')} />}
-
+        {activeTab === 'Prayer Requests' && <PrayerRequests person={person} onAdd={() => setModal('addPrayer')} onMarkAnswered={handlers.markAnswered} onFollowUp={handlers.followUpOnPrayer} />}
+        {activeTab === 'Life Events'     && <LifeEvents person={person} onAdd={() => setModal('addLifeEvent')} onFollowUp={handlers.followUpOnLifeEvent} />}
+        {activeTab === 'Tasks'           && (
+          <PersonTasksTab
+            tasks={personTasks}
+            onAdd={() => setModal('addTask')}
+            onToggle={handlers.toggleTask}
+            onSnooze={handlers.snoozeTask}
+            onDelete={handlers.deleteTask}
+            onPromote={handlers.promote}
+            onArchive={handlers.archive}
+          />
+        )}
       </div>
 
       {/* Modals */}
-      {modal === 'editContact'     && <EditContactModal person={person} onSave={handlers.editSave} onDelete={handlers.delete} onClose={() => setModal(null)} />}
+      {modal === 'editContact'     && <EditContactModal person={person} innerCircleCount={innerCircleCount} onSave={handlers.editSave} onDelete={handlers.delete} onClose={() => setModal(null)} />}
       {modal === 'logConversation' && <LogConversationModal onSave={handlers.addConversation} onClose={() => setModal(null)} />}
       {modal === 'addPrayer'       && <AddPrayerModal onSave={handlers.addPrayer} onClose={() => setModal(null)} />}
       {modal === 'addLifeEvent'    && <AddLifeEventModal onSave={handlers.addLifeEvent} onClose={() => setModal(null)} />}
+      {modal === 'addTask'         && <AddTaskModal onSave={handlers.addManualTask} onClose={() => setModal(null)} />}
     </div>
   );
 }

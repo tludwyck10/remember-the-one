@@ -11,7 +11,7 @@ const navItems = [
   { to: '/people',        icon: Users,           label: 'People'       },
   { to: '/conversations', icon: MessageSquare,   label: 'Conversations' },
   { to: '/prayer',        icon: Heart,           label: 'Prayer'       },
-  { to: '/tasks',         icon: CheckSquare,     label: 'Follow-Ups'   },
+  { to: '/tasks',         icon: CheckSquare,     label: 'Tasks'        },
   { to: '/events',        icon: Milestone,       label: 'Life Events'  },
   { to: '/calendar',      icon: Calendar,        label: 'Calendar'     },
   { to: '/cll',           icon: Footprints,      label: 'CLL Pathway'  },

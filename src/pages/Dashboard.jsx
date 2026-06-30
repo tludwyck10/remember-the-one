@@ -1,37 +1,67 @@
 import { Link } from 'react-router-dom';
-import { ArrowRight, Users, AlertTriangle, Calendar, Heart } from 'lucide-react';
+import { ArrowRight, AlertTriangle, Calendar, Heart, ListChecks } from 'lucide-react';
 import Avatar from '../components/Avatar';
-import Badge from '../components/Badge';
-import { usePeople } from '../context/PeopleContext';
+import { usePeople, CIRCLES, INNER_CIRCLE_CAP } from '../context/PeopleContext';
 import { useTasks } from '../context/TasksContext';
 import { useAuth } from '../context/AuthContext';
+
+const CIRCLE_MAX = { 'Inner Circle': INNER_CIRCLE_CAP, 'Disciples': 12, 'Active Relationships': 20, 'New Connections': 10 };
+const CIRCLE_COLOR = { 'Inner Circle': 'bg-amber-400', 'Disciples': 'bg-[#2A9D8F]', 'Active Relationships': 'bg-blue-400', 'New Connections': 'bg-purple-400' };
+
+function bucketFor(task) {
+  if (!task.dueAt) return null;
+  const due = new Date(task.dueAt); due.setHours(0, 0, 0, 0);
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const diffDays = Math.round((due - today) / 86400000);
+  if (diffDays < 0) return 'Overdue';
+  if (diffDays === 0) return 'Due Today';
+  if (diffDays <= 7) return 'This Week';
+  return 'Later';
+}
+
+function formatDue(dueAt) {
+  const due = new Date(dueAt); due.setHours(0, 0, 0, 0);
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const diffDays = Math.round((due - today) / 86400000);
+  if (diffDays === 0)  return 'Due today';
+  if (diffDays === 1)  return 'Due tomorrow';
+  if (diffDays < 0)    return `Overdue ${Math.abs(diffDays)}d`;
+  return `Due in ${diffDays}d`;
+}
 
 export default function Dashboard() {
   const { people } = usePeople();
   const { tasks }  = useTasks();
   const { userProfile } = useAuth();
 
-  const myPeople = people.filter(p => p.pastorId === userProfile?.id);
-  const myTasks  = tasks.filter(t => t.pastorId === userProfile?.id);
+  const myPeople = people.filter(p => p.pastorId === userProfile?.id && !p.archived);
+  const myTasks  = tasks.filter(t => t.pastorId === userProfile?.id && !t.completed);
 
-  const dueToday       = myPeople.filter(p => p.lastContactDays <= 1).slice(0, 3);
-  const recentPrayers  = myPeople
+  // Prioritized reminders list: overdue first (most overdue first), then due today, then upcoming.
+  const reminders = myTasks
+    .map(t => ({ ...t, bucket: bucketFor(t) }))
+    .filter(t => t.bucket && t.bucket !== 'Later')
+    .sort((a, b) => new Date(a.dueAt) - new Date(b.dueAt))
+    .slice(0, 6);
+
+  const recentPrayers = myPeople
     .flatMap(p => p.prayerRequests.map(pr => ({ ...pr, personId: p.id, personName: p.name })))
     .filter(pr => pr.status !== 'Answered')
-    .slice(0, 4);
-  const upcomingFollowUps = myTasks
-    .filter(t => t.category !== 'Completed' && t.category !== 'Overdue')
     .slice(0, 4);
 
   const activePrayers = myPeople
     .flatMap(p => p.prayerRequests)
     .filter(pr => pr.status !== 'Answered').length;
 
+  const overdueCount  = myTasks.filter(t => bucketFor(t) === 'Overdue').length;
+  const dueTodayCount = myTasks.filter(t => bucketFor(t) === 'Due Today').length;
+  const thisWeekCount = myTasks.filter(t => bucketFor(t) === 'This Week').length;
+
   const statConfig = [
-    { value: myTasks.filter(t => t.category === 'Due Today').length,  label: 'Due Today',     sub: 'People to reach out to', icon: Users,         bg: 'bg-teal-50',  icon_cls: 'text-[#2A9D8F]', num_cls: 'text-[#2A9D8F]' },
-    { value: myTasks.filter(t => t.category === 'Overdue').length,    label: 'Overdue',       sub: 'Need your attention',    icon: AlertTriangle, bg: 'bg-amber-50', icon_cls: 'text-amber-500', num_cls: 'text-amber-600' },
-    { value: myTasks.filter(t => t.category === 'This Week').length,  label: 'Upcoming',      sub: 'Next 7 days',            icon: Calendar,      bg: 'bg-blue-50',  icon_cls: 'text-blue-500',  num_cls: 'text-blue-600'  },
-    { value: activePrayers,                                            label: 'Active Prayers',sub: 'People being lifted up', icon: Heart,         bg: 'bg-rose-50',  icon_cls: 'text-rose-400',  num_cls: 'text-rose-500'  },
+    { value: dueTodayCount, label: 'Due Today',      sub: 'People to reach out to', icon: ListChecks,    bg: 'bg-teal-50',  icon_cls: 'text-[#2A9D8F]', num_cls: 'text-[#2A9D8F]' },
+    { value: overdueCount,  label: 'Overdue',        sub: 'Need your attention',    icon: AlertTriangle, bg: 'bg-amber-50', icon_cls: 'text-amber-500', num_cls: 'text-amber-600' },
+    { value: thisWeekCount, label: 'Upcoming',       sub: 'Next 7 days',            icon: Calendar,      bg: 'bg-blue-50',  icon_cls: 'text-blue-500',  num_cls: 'text-blue-600'  },
+    { value: activePrayers, label: 'Active Prayers', sub: 'People being lifted up', icon: Heart,         bg: 'bg-rose-50',  icon_cls: 'text-rose-400',  num_cls: 'text-rose-500'  },
   ];
 
   return (
@@ -57,26 +87,32 @@ export default function Dashboard() {
       <div className="grid lg:grid-cols-2 gap-6">
         {/* LEFT */}
         <div className="space-y-5">
-          {/* Due Today */}
+          {/* Reminders — most overdue first */}
           <div className="card overflow-hidden">
             <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-              <p className="text-sm font-semibold text-gray-800">Due Today</p>
-              <Link to="/people" className="flex items-center gap-1 text-[11px] text-[#2A9D8F] hover:underline font-medium">
+              <p className="text-sm font-semibold text-gray-800">Reminders</p>
+              <Link to="/tasks" className="flex items-center gap-1 text-[11px] text-[#2A9D8F] hover:underline font-medium">
                 View all <ArrowRight className="w-3 h-3" />
               </Link>
             </div>
             <div className="divide-y divide-gray-50">
-              {dueToday.map(person => (
-                <div key={person.id} className="flex items-center gap-3 px-5 py-4 hover:bg-gray-50 transition-colors group">
-                  <Avatar name={person.name} size="md" />
+              {reminders.length === 0 && (
+                <div className="px-5 py-10 text-center">
+                  <p className="text-[11px] uppercase tracking-[0.14em] text-gray-300">You're all caught up</p>
+                </div>
+              )}
+              {reminders.map(task => (
+                <div key={task.id} className="flex items-center gap-3 px-5 py-4 hover:bg-gray-50 transition-colors group">
+                  <Avatar name={task.personName} size="md" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-800">{person.name}</p>
+                    <p className="text-sm font-medium text-gray-800 truncate">{task.label}</p>
                     <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                      <Badge label={person.circle} />
-                      <span className="text-[10px] text-gray-400">{person.lastContactDays}d since contact</span>
+                      <span className={`text-[10px] font-medium ${task.bucket === 'Overdue' ? 'text-red-500' : 'text-gray-400'}`}>
+                        {formatDue(task.dueAt)}
+                      </span>
                     </div>
                   </div>
-                  <Link to={`/people/${person.id}`}
+                  <Link to={`/people/${task.personId}`}
                     className="text-[11px] font-medium text-[#2A9D8F] opacity-0 group-hover:opacity-100 transition-opacity">
                     View →
                   </Link>
@@ -98,24 +134,26 @@ export default function Dashboard() {
 
           {/* Circle overview */}
           <div className="card p-5">
-            <p className="text-sm font-semibold text-gray-800 mb-4">Circle Overview</p>
+            <p className="text-sm font-semibold text-gray-800 mb-4">Closeness Tiers</p>
             <div className="space-y-4">
-              {[
-                { label: 'Inner Circle',     count: myPeople.filter(p => p.circle === 'Inner Circle').length,     max: 5,  color: 'bg-amber-400' },
-                { label: 'Growth Circle',    count: myPeople.filter(p => p.circle === 'Growth Circle').length,    max: 12, color: 'bg-[#2A9D8F]' },
-                { label: 'Community Circle', count: myPeople.filter(p => p.circle === 'Community Circle').length, max: 20, color: 'bg-blue-400' },
-              ].map(item => (
-                <div key={item.label}>
-                  <div className="flex justify-between mb-1.5">
-                    <p className="text-xs font-medium text-gray-700">{item.label}</p>
-                    <p className="text-[10px] text-gray-400">{item.count} people</p>
+              {CIRCLES.map(circle => {
+                const count = myPeople.filter(p => p.circle === circle).length;
+                const max   = CIRCLE_MAX[circle];
+                return (
+                  <div key={circle}>
+                    <div className="flex justify-between mb-1.5">
+                      <p className="text-xs font-medium text-gray-700">{circle}</p>
+                      <p className="text-[10px] text-gray-400">
+                        {count}{circle === 'Inner Circle' ? ` / ${max}` : ' people'}
+                      </p>
+                    </div>
+                    <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                      <div className={`h-full ${CIRCLE_COLOR[circle]} rounded-full transition-all`}
+                        style={{ width: `${Math.min(100, (count / max) * 100)}%` }} />
+                    </div>
                   </div>
-                  <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                    <div className={`h-full ${item.color} rounded-full transition-all`}
-                      style={{ width: `${(item.count / item.max) * 100}%` }} />
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>
@@ -139,26 +177,6 @@ export default function Dashboard() {
                     <p className="text-xs text-gray-500 mt-0.5 leading-relaxed line-clamp-1">{pr.request}</p>
                   </div>
                   <p className="text-[10px] text-gray-400 flex-shrink-0">{pr.daysActive}d</p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Follow-Ups */}
-          <div className="card overflow-hidden">
-            <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-              <p className="text-sm font-semibold text-gray-800">Upcoming Follow-Ups</p>
-              <Link to="/tasks" className="text-[11px] text-[#2A9D8F] hover:underline font-medium">Manage</Link>
-            </div>
-            <div className="divide-y divide-gray-50">
-              {upcomingFollowUps.map(task => (
-                <div key={task.id} className="flex items-center gap-3 px-5 py-4 hover:bg-gray-50 transition-colors">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-800">{task.label}</p>
-                    <p className="text-[10px] text-gray-400 mt-0.5 uppercase tracking-[0.08em]">
-                      {task.type} · {task.date}{task.time && ` · ${task.time}`}
-                    </p>
-                  </div>
                 </div>
               ))}
             </div>
