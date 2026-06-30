@@ -114,11 +114,19 @@ export function TasksProvider({ children }) {
       completed:     false,
     };
 
-    setTasks(prev => [...prev, dbToTask(newTask)]);
-
+    // Insert first (rather than optimistic-then-insert) so that a unique-constraint
+    // rejection — another tab/device already created this exact open reminder —
+    // never leaves a phantom duplicate sitting in local state.
     const { error } = await supabase.from('tasks').insert(newTask);
-    if (error) console.error('Task insert error:', error);
-    return dbToTask(newTask);
+    if (error) {
+      if (error.code === '23505') return null; // another session already created it
+      console.error('Task insert error:', error);
+      return null;
+    }
+
+    const task = dbToTask(newTask);
+    setTasks(prev => [...prev, task]);
+    return task;
   }
 
   async function updateTask(id, changes) {
