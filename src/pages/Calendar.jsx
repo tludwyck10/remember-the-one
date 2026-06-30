@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, Check, Clock, Coffee, Phone, MessageSquare, UtensilsCrossed, Home, Calendar as CalIcon } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Check, Clock, Coffee, Phone, MessageSquare, UtensilsCrossed, Home, Calendar as CalIcon, Cake } from 'lucide-react';
 import { useTasks } from '../context/TasksContext';
+import { usePeople } from '../context/PeopleContext';
+import { completeTaskWithLog } from '../lib/taskCompletion';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function toDateStr(date) {
@@ -44,6 +46,11 @@ const TYPE_ICONS = {
   visit:  Home,
 };
 
+function iconFor(task) {
+  if (task.reminderKind === 'birthday' || task.reminderKind === 'birthday_advance') return Cake;
+  return TYPE_ICONS[task.type] || CalIcon;
+}
+
 const CAT_COLORS = {
   'Due Today': 'bg-teal-100 text-teal-700 border-teal-200',
   'This Week': 'bg-blue-100 text-blue-700 border-blue-200',
@@ -60,7 +67,7 @@ const CAT_DOT = {
 
 // ─── Task pill (used in month/week cells) ────────────────────────────────────
 function TaskPill({ task, onClick }) {
-  const Icon = TYPE_ICONS[task.type] || CalIcon;
+  const Icon = iconFor(task);
   const cls  = CAT_COLORS[task.category] || CAT_COLORS['This Week'];
   return (
     <button onClick={() => onClick?.(task)}
@@ -73,7 +80,7 @@ function TaskPill({ task, onClick }) {
 
 // ─── Task detail card (used in day view) ────────────────────────────────────
 function TaskCard({ task, onComplete }) {
-  const Icon = TYPE_ICONS[task.type] || CalIcon;
+  const Icon = iconFor(task);
   const cls  = CAT_COLORS[task.category] || CAT_COLORS['This Week'];
   const done = task.category === 'Completed';
 
@@ -271,8 +278,15 @@ export default function CalendarPage() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const { tasks, markComplete } = useTasks();
+  const { tasks, toggleComplete } = useTasks();
+  const { markContacted, addConversation } = usePeople();
   const [view, setView]    = useState('Month');
+
+  function handleComplete(taskId) {
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
+    completeTaskWithLog(task, {}, { toggleComplete, markContacted, addConversation });
+  }
   const [anchor, setAnchor] = useState(new Date(today));
 
   // Navigation title
@@ -362,7 +376,7 @@ export default function CalendarPage() {
           <WeekView anchor={anchor} tasks={tasks} today={today} onDayClick={handleDayClick} />
         )}
         {view === 'Day' && (
-          <DayView anchor={anchor} tasks={tasks} today={today} onComplete={markComplete} />
+          <DayView anchor={anchor} tasks={tasks} today={today} onComplete={handleComplete} />
         )}
       </div>
     </div>

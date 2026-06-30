@@ -15,7 +15,7 @@ const circleDesc = {
   'New Connections':      'Newly added — gets a 2-step follow-up sequence',
 };
 
-const EMPTY_FORM = { name: '', circle: 'New Connections', phone: '', email: '', notes: '' };
+const EMPTY_FORM = { name: '', circle: 'New Connections', phone: '', email: '', birthday: '', notes: '' };
 
 function Modal({ title, onClose, children }) {
   return (
@@ -97,6 +97,12 @@ function AddPersonModal({ onClose, onSave, innerCircleCount }) {
             <input type="email" placeholder="name@email.com" value={form.email}
               onChange={e => set('email', e.target.value)} className="input-line" />
           </div>
+        </div>
+
+        <div>
+          <label className="section-label block mb-2">Birthday <span className="text-gray-300">(optional)</span></label>
+          <input type="date" value={form.birthday}
+            onChange={e => set('birthday', e.target.value)} className="input-line" />
         </div>
 
         <div>

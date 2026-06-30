@@ -15,6 +15,7 @@ export const TIER_INTERVAL_DAYS = {
 
 export const NEW_CONNECTION_STEP1_DAYS = 3;
 export const NEW_CONNECTION_STEP2_DAYS = 14;
+export const BIRTHDAY_ADVANCE_DAYS = 7;
 
 function addDays(date, days) {
   return new Date(date.getTime() + days * DAY);
@@ -26,8 +27,29 @@ function reminderLabel(kind, personName) {
     case 'new_connection_1':    return `First follow-up with ${personName}`;
     case 'new_connection_2':    return `Second follow-up with ${personName}`;
     case 'promote_or_archive':  return `Promote ${personName} or archive?`;
+    case 'birthday':            return `Wish ${personName} a happy birthday!`;
+    case 'birthday_advance':    return `${personName}'s birthday is in a week`;
     default:                    return `Follow up with ${personName}`;
   }
+}
+
+// Next occurrence (today or future) of a recurring 'YYYY-MM-DD' birthday, ignoring year.
+function nextBirthdayOccurrence(birthday, now) {
+  const [, m, d] = birthday.split('-').map(Number);
+  const today = new Date(now); today.setHours(0, 0, 0, 0);
+  let candidate = new Date(today.getFullYear(), m - 1, d);
+  if (candidate < today) candidate = new Date(today.getFullYear() + 1, m - 1, d);
+  return candidate;
+}
+
+function isSameDay(a, b) {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
+
+function mostRecentReminder(tasks, personId, kind) {
+  return tasks
+    .filter(t => t.personId === personId && t.sourceType === 'reminder' && t.reminderKind === kind && t.dueAt)
+    .sort((a, b) => new Date(b.dueAt) - new Date(a.dueAt))[0];
 }
 
 // Returns the single open (uncompleted) reminder task for a person, of a given kind if specified.
@@ -65,6 +87,62 @@ export function computeReminderActions(people, tasks, userId) {
       t.personId === person.id && t.sourceType === 'reminder' && !t.completed
     );
 
+    // Birthdays apply regardless of tier, and run before the tier-specific
+    // branches below (which `continue` past this point in the loop).
+    if (person.birthday) {
+      let nextBirthday = nextBirthdayOccurrence(person.birthday, now);
+      const bdayTask = findOpenReminder(tasks, person.id, 'birthday');
+      if (!bdayTask) {
+        // If this occurrence's reminder was already completed (e.g. they
+        // checked it off on the day itself), don't instantly recreate it —
+        // roll forward to next year's instead.
+        const recent = mostRecentReminder(tasks, person.id, 'birthday');
+        if (recent?.completed && isSameDay(new Date(recent.dueAt), nextBirthday)) {
+          nextBirthday = new Date(nextBirthday);
+          nextBirthday.setFullYear(nextBirthday.getFullYear() + 1);
+        }
+        toCreate.push({ personId: person.id, personName: person.name, reminderKind: 'birthday', dueAt: nextBirthday });
+      } else {
+        const currentDue = bdayTask.dueAt ? new Date(bdayTask.dueAt) : null;
+        if (!currentDue || Math.abs(currentDue.getTime() - nextBirthday.getTime()) > 60_000) {
+          toUpdate.push({ id: bdayTask.id, dueAt: nextBirthday });
+        }
+      }
+
+      if (person.circle === 'Inner Circle') {
+        let advanceDue = addDays(nextBirthday, -BIRTHDAY_ADVANCE_DAYS);
+        const advanceTask = findOpenReminder(tasks, person.id, 'birthday_advance');
+        if (!advanceTask) {
+          // Same guard: if the advance heads-up for this occurrence was
+          // already completed, wait for next year's rather than re-firing.
+          const recentAdvance = mostRecentReminder(tasks, person.id, 'birthday_advance');
+          if (recentAdvance?.completed) {
+            const impliedBirthday = addDays(new Date(recentAdvance.dueAt), BIRTHDAY_ADVANCE_DAYS);
+            if (isSameDay(impliedBirthday, nextBirthday)) {
+              advanceDue = addDays(nextBirthday, -BIRTHDAY_ADVANCE_DAYS);
+              advanceDue.setFullYear(advanceDue.getFullYear() + 1);
+            }
+          }
+          toCreate.push({ personId: person.id, personName: person.name, reminderKind: 'birthday_advance', dueAt: advanceDue });
+        } else {
+          const currentDue = advanceTask.dueAt ? new Date(advanceTask.dueAt) : null;
+          if (!currentDue || Math.abs(currentDue.getTime() - advanceDue.getTime()) > 60_000) {
+            toUpdate.push({ id: advanceTask.id, dueAt: advanceDue });
+          }
+        }
+      } else {
+        // No longer Inner Circle — drop the early reminder if one's pending.
+        const staleAdvance = findOpenReminder(tasks, person.id, 'birthday_advance');
+        if (staleAdvance) toDelete.push(staleAdvance.id);
+      }
+    } else {
+      // Birthday was cleared — drop any open birthday reminders.
+      const staleBday = findOpenReminder(tasks, person.id, 'birthday');
+      if (staleBday) toDelete.push(staleBday.id);
+      const staleAdvance = findOpenReminder(tasks, person.id, 'birthday_advance');
+      if (staleAdvance) toDelete.push(staleAdvance.id);
+    }
+
     if (person.circle === 'New Connections') {
       // Any leftover cadence reminder from a previous tier should go away.
       const staleCadence = openReminders.find(t => t.reminderKind === 'cadence');
@@ -101,7 +179,7 @@ export function computeReminderActions(people, tasks, userId) {
     if (CADENCE_TIERS.includes(person.circle)) {
       // Any leftover new-connection sequence tasks from a previous tier should go away.
       for (const t of openReminders) {
-        if (t.reminderKind !== 'cadence') toDelete.push(t.id);
+        if (!['cadence', 'birthday', 'birthday_advance'].includes(t.reminderKind)) toDelete.push(t.id);
       }
 
       const interval = TIER_INTERVAL_DAYS[person.circle];

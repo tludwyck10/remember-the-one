@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Phone, Mail, MapPin, Plus, X, Check, Pencil, Trash2, ChevronLeft, Camera } from 'lucide-react';
+import { ArrowLeft, Phone, Mail, MapPin, Plus, X, Check, Pencil, Trash2, ChevronLeft, Camera, Cake } from 'lucide-react';
 import Avatar from '../components/Avatar';
 import Badge from '../components/Badge';
 import { usePeople, CIRCLES, INNER_CIRCLE_CAP } from '../context/PeopleContext';
@@ -10,6 +10,12 @@ import { uploadPhoto } from '../lib/uploadPhoto';
 import { completeTaskWithLog } from '../lib/taskCompletion';
 
 const tabs = ['Overview', 'Conversations', 'Prayer Requests', 'Life Events', 'Tasks'];
+
+function formatBirthday(birthday) {
+  if (!birthday) return '';
+  const [, m, d] = birthday.split('-').map(Number);
+  return new Date(2000, m - 1, d).toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+}
 
 function formatDue(dueAt) {
   if (!dueAt) return null;
@@ -78,10 +84,11 @@ function EditContactModal({ person, innerCircleCount, onSave, onDelete, onClose 
   const [form, setForm] = useState({
     name:   person.name,
     circle: person.circle,
-    phone:  person.phone  || '',
-    email:  person.email  || '',
-    campus: person.campus || '',
-    notes:  person.notes  || '',
+    phone:    person.phone    || '',
+    email:    person.email    || '',
+    campus:   person.campus   || '',
+    birthday: person.birthday || '',
+    notes:    person.notes    || '',
   });
   const [error, setError] = useState('');
   const [confirming, setConfirming] = useState(false);
@@ -168,10 +175,16 @@ function EditContactModal({ person, innerCircleCount, onSave, onDelete, onClose 
           </Field>
         </div>
 
-        <Field label="Campus">
-          <input type="text" value={form.campus} onChange={e => set('campus', e.target.value)}
-            placeholder="Frisco Campus" className="input-line" />
-        </Field>
+        <div className="grid grid-cols-2 gap-6">
+          <Field label="Campus">
+            <input type="text" value={form.campus} onChange={e => set('campus', e.target.value)}
+              placeholder="Frisco Campus" className="input-line" />
+          </Field>
+          <Field label="Birthday (optional)">
+            <input type="date" value={form.birthday} onChange={e => set('birthday', e.target.value)}
+              className="input-line" />
+          </Field>
+        </div>
 
         <Field label="Pastoral Notes">
           <textarea rows={3} value={form.notes} onChange={e => set('notes', e.target.value)}
@@ -959,6 +972,11 @@ export default function PersonDetail() {
               {person.campus ? (
                 <span className="flex items-center gap-2 text-xs text-gray-500">
                   <MapPin className="w-3.5 h-3.5" /> {person.campus}
+                </span>
+              ) : null}
+              {person.birthday ? (
+                <span className="flex items-center gap-2 text-xs text-gray-500">
+                  <Cake className="w-3.5 h-3.5" /> {formatBirthday(person.birthday)}
                 </span>
               ) : null}
             </div>

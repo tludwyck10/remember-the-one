@@ -28,6 +28,7 @@ function dbToPerson(row) {
     lastContact:     row.last_contact || '',
     lastContactDays: row.last_contact_days || 0,
     lastContactedAt: row.last_contacted_at || null,
+    birthday:        row.birthday || null,
     archived:        !!row.archived,
     growthAreas:     row.growth_areas || [],
     pastorId:        row.pastor_id  || null,
@@ -106,6 +107,7 @@ export function PeopleProvider({ children }) {
       last_contact:      today,
       last_contact_days: 0,
       last_contacted_at: nowIso,
+      birthday:          formData.birthday || null,
       growth_areas:      [],
       church_id:         church?.id   || null,
       pastor_id:         userProfile?.id || null,
@@ -143,6 +145,7 @@ export function PeopleProvider({ children }) {
     if (changes.notes     !== undefined) dbChanges.notes      = changes.notes;
     if (changes.avatarUrl !== undefined) dbChanges.avatar_url = changes.avatarUrl;
     if (changes.archived  !== undefined) dbChanges.archived   = changes.archived;
+    if (changes.birthday  !== undefined) dbChanges.birthday   = changes.birthday || null;
 
     if (Object.keys(dbChanges).length === 0) return {};
     const { error } = await supabase.from('people').update(dbChanges).eq('id', id);
