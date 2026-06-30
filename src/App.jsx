@@ -30,7 +30,7 @@ function AppShell() {
   const { userProfile } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  useReminderSync(people, tasks, { addTask, updateTask, deleteTask }, userProfile?.id);
+  useReminderSync(people, tasks, { addTask, updateTask, deleteTask }, userProfile?.id, peopleLoading || tasksLoading);
 
   if (peopleLoading || tasksLoading) return <LoadingScreen />;
 
