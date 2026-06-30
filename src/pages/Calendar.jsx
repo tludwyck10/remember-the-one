@@ -278,14 +278,14 @@ export default function CalendarPage() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const { tasks, toggleComplete } = useTasks();
+  const { tasks, toggleComplete, addTask } = useTasks();
   const { markContacted, addConversation } = usePeople();
   const [view, setView]    = useState('Month');
 
   function handleComplete(taskId) {
     const task = tasks.find(t => t.id === taskId);
     if (!task) return;
-    completeTaskWithLog(task, {}, { toggleComplete, markContacted, addConversation });
+    completeTaskWithLog(task, {}, { toggleComplete, markContacted, addConversation, addTask });
   }
   const [anchor, setAnchor] = useState(new Date(today));
 

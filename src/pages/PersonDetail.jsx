@@ -911,7 +911,7 @@ export default function PersonDetail() {
       else setCompletingTask(task);
     },
     confirmComplete: async (form) => {
-      await completeTaskWithLog(completingTask, form, { toggleComplete, markContacted, addConversation: ctxAddConversation });
+      await completeTaskWithLog(completingTask, form, { toggleComplete, markContacted, addConversation: ctxAddConversation, addTask });
       setCompletingTask(null);
     },
     editTaskSave: (form) => {

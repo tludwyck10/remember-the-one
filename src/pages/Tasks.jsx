@@ -365,7 +365,7 @@ export default function Tasks() {
   }
 
   async function handleConfirmComplete(form) {
-    await completeTaskWithLog(completingTask, form, { toggleComplete, markContacted, addConversation });
+    await completeTaskWithLog(completingTask, form, { toggleComplete, markContacted, addConversation, addTask });
     setCompletingTask(null);
   }
 
