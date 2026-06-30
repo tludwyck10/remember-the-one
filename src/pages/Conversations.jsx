@@ -194,7 +194,7 @@ export default function Conversations() {
         {filtered.map(c => (
           <div key={`${c.personId}-${c.id}`} className="card px-5 py-5 hover:shadow-md transition-all">
             <div className="flex items-start gap-4">
-              <Avatar name={c.personName} size="md" />
+              <Avatar name={c.personName} avatarUrl={c.personAvatarUrl} size="md" />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between gap-3 mb-2">
                   <Link to={`/people/${c.personId}`}

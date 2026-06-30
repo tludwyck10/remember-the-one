@@ -127,7 +127,7 @@ export default function CLLPathway() {
                 {stagepeople.map(person => (
                   <div key={person.id} className="px-5 py-4 hover:bg-gray-50 transition-colors">
                     <div className="flex items-center gap-3 mb-3">
-                      <Avatar name={person.name} size="sm" />
+                      <Avatar name={person.name} avatarUrl={person.avatarUrl} size="sm" />
                       <div className="flex-1 min-w-0">
                         <Link to={`/people/${person.id}`}
                           className="text-sm font-medium text-gray-900 hover:text-[#2A9D8F] transition-colors leading-snug block">

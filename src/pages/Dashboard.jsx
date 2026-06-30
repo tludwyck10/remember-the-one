@@ -45,9 +45,11 @@ export default function Dashboard() {
     .slice(0, 6);
 
   const recentPrayers = myPeople
-    .flatMap(p => p.prayerRequests.map(pr => ({ ...pr, personId: p.id, personName: p.name })))
+    .flatMap(p => p.prayerRequests.map(pr => ({ ...pr, personId: p.id, personName: p.name, personAvatarUrl: p.avatarUrl })))
     .filter(pr => pr.status !== 'Answered')
     .slice(0, 4);
+
+  const peopleById = Object.fromEntries(myPeople.map(p => [p.id, p]));
 
   const activePrayers = myPeople
     .flatMap(p => p.prayerRequests)
@@ -103,7 +105,7 @@ export default function Dashboard() {
               )}
               {reminders.map(task => (
                 <div key={task.id} className="flex items-center gap-3 px-5 py-4 hover:bg-gray-50 transition-colors group">
-                  <Avatar name={task.personName} size="md" />
+                  <Avatar name={task.personName} avatarUrl={peopleById[task.personId]?.avatarUrl} size="md" />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-gray-800 truncate">{task.label}</p>
                     <div className="flex items-center gap-2 mt-0.5 flex-wrap">
@@ -171,7 +173,7 @@ export default function Dashboard() {
             <div className="divide-y divide-gray-50">
               {recentPrayers.map(pr => (
                 <div key={pr.id} className="flex items-start gap-3 px-5 py-4 hover:bg-gray-50 transition-colors">
-                  <Avatar name={pr.personName} size="sm" />
+                  <Avatar name={pr.personName} avatarUrl={pr.personAvatarUrl} size="sm" />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-gray-800">{pr.personName}</p>
                     <p className="text-xs text-gray-500 mt-0.5 leading-relaxed line-clamp-1">{pr.request}</p>

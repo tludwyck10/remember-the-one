@@ -94,7 +94,7 @@ export default function TeamMember() {
             {contacts.map(person => (
               <Link key={person.id} to={`/people/${person.id}`}
                 className="card flex items-center gap-4 px-5 py-4 hover:shadow-md transition-all group">
-                <Avatar name={person.name} size="md" />
+                <Avatar name={person.name} avatarUrl={person.avatarUrl} size="md" />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-gray-900">{person.name}</p>
                   <div className="flex items-center gap-2 mt-0.5 flex-wrap">

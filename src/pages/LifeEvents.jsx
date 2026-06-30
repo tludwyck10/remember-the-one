@@ -156,6 +156,7 @@ export default function LifeEvents() {
           ...ev,
           personId:   p.id,
           personName: p.name,
+          personAvatarUrl: p.avatarUrl,
         }))
       )
       .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
@@ -264,7 +265,7 @@ export default function LifeEvents() {
                     ? 'bg-gray-900 text-white border-gray-900'
                     : 'text-gray-500 border-gray-200 hover:border-gray-400'
                 }`}>
-                <Avatar name={p.name} size="xs" />
+                <Avatar name={p.name} avatarUrl={p.avatarUrl} size="xs" />
                 {p.name.split(' ')[0]}
               </button>
             ))}
@@ -324,7 +325,7 @@ export default function LifeEvents() {
                       <Link
                         to={`/people/${ev.personId}`}
                         className="flex items-center gap-1.5 hover:opacity-80 transition-opacity">
-                        <Avatar name={ev.personName} size="xs" />
+                        <Avatar name={ev.personName} avatarUrl={ev.personAvatarUrl} size="xs" />
                         <span className="text-[11px] font-medium text-[#2A9D8F]">{ev.personName}</span>
                       </Link>
                       {ev.date && (

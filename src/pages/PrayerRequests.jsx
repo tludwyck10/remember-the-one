@@ -288,7 +288,7 @@ export default function PrayerRequests() {
 
         {filtered.map(pr => (
           <div key={pr.id} className="card px-5 py-4 flex items-start gap-4 hover:shadow-md transition-all">
-            <Avatar name={pr.personName} size="md" />
+            <Avatar name={pr.personName} avatarUrl={pr.personAvatarUrl} size="md" />
             <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setEditingPrayer(pr)}>
               <div className="flex items-center justify-between gap-3 mb-1">
                 <Link to={`/people/${pr.personId}`} onClick={e => e.stopPropagation()}
