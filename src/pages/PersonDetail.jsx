@@ -7,7 +7,7 @@ import { usePeople, CIRCLES, INNER_CIRCLE_CAP } from '../context/PeopleContext';
 import { useTasks } from '../context/TasksContext';
 import { useAuth } from '../context/AuthContext';
 import { uploadPhoto } from '../lib/uploadPhoto';
-import { resolveTaskToggle } from '../lib/reminders';
+import { completeTaskWithLog } from '../lib/taskCompletion';
 
 const tabs = ['Overview', 'Conversations', 'Prayer Requests', 'Life Events', 'Tasks'];
 
@@ -594,6 +594,120 @@ function AddTaskModal({ onSave, onClose }) {
   );
 }
 
+// ─── Complete Task modal ──────────────────────────────────────────────────────
+const CONTACT_METHODS = ['Text', 'Call', 'In Person', 'Other'];
+
+function CompleteTaskModal({ task, onConfirm, onClose }) {
+  const [method, setMethod] = useState('');
+  const [notes, setNotes]   = useState('');
+  const [saving, setSaving] = useState(false);
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setSaving(true);
+    await onConfirm({ method, notes });
+  }
+
+  return (
+    <Modal title="Mark Complete" onClose={onClose}>
+      <form onSubmit={handleSubmit} className="space-y-7">
+        <div>
+          <p className="text-sm text-gray-800 font-medium">{task.label}</p>
+          <p className="text-xs text-gray-400 mt-1">Log how you connected — totally optional.</p>
+        </div>
+        <Field label="Method">
+          <div className="grid grid-cols-4 gap-2">
+            {CONTACT_METHODS.map(m => (
+              <button key={m} type="button" onClick={() => setMethod(m === method ? '' : m)}
+                className={`py-2 text-[10px] uppercase tracking-[0.08em] font-medium rounded-lg border transition-all ${
+                  method === m
+                    ? 'bg-[#2A9D8F] text-white border-[#2A9D8F]'
+                    : 'bg-white text-gray-500 border-gray-200 hover:border-[#2A9D8F]'
+                }`}>
+                {m}
+              </button>
+            ))}
+          </div>
+        </Field>
+        <Field label="Notes (optional)">
+          <textarea rows={3} autoFocus value={notes} onChange={e => setNotes(e.target.value)}
+            placeholder="What did you talk about?" className="input-line resize-none" />
+        </Field>
+        <div className="flex gap-3">
+          <button type="button" onClick={onClose} className="btn-secondary flex-1">Cancel</button>
+          <button type="submit" disabled={saving} className="btn-primary flex-1 disabled:opacity-60">
+            {saving ? 'Saving...' : 'Mark Complete'}
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+// ─── Edit Task modal (manual / linked tasks only) ─────────────────────────────
+function EditTaskModal({ task, onSave, onDelete, onClose }) {
+  const [form, setForm] = useState({
+    title:   task.label,
+    dueDate: task.dueAt ? new Date(task.dueAt).toISOString().split('T')[0] : '',
+    notes:   task.notes || '',
+  });
+  const [error, setError] = useState('');
+  const [confirming, setConfirming] = useState(false);
+
+  function handleSubmit(e) {
+    e.preventDefault();
+    if (!form.title.trim()) { setError('Add a task title.'); return; }
+    onSave(form);
+  }
+
+  if (confirming) {
+    return (
+      <Modal title="Delete Task?" onClose={() => setConfirming(false)}>
+        <p className="text-sm text-gray-600 leading-relaxed mb-8">
+          Delete "<strong>{task.label}</strong>"? This can't be undone.
+        </p>
+        <div className="flex gap-3">
+          <button onClick={() => setConfirming(false)} className="btn-secondary flex-1">Cancel</button>
+          <button onClick={onDelete} className="flex-1 bg-red-600 text-white text-[11px] uppercase tracking-[0.15em] font-medium py-3 rounded-lg hover:bg-red-700 transition-colors">
+            Yes, Delete
+          </button>
+        </div>
+      </Modal>
+    );
+  }
+
+  return (
+    <Modal title="Edit Task" onClose={onClose}>
+      <form onSubmit={handleSubmit} className="space-y-7">
+        <Field label="Title">
+          <input type="text" autoFocus value={form.title}
+            onChange={e => { setForm(f => ({ ...f, title: e.target.value })); setError(''); }}
+            className="input-line" />
+          {error && <p className="text-[11px] text-red-500 mt-1">{error}</p>}
+        </Field>
+        <Field label="Due Date (optional)">
+          <input type="date" value={form.dueDate}
+            onChange={e => setForm(f => ({ ...f, dueDate: e.target.value }))} className="input-line" />
+        </Field>
+        <Field label="Notes (optional)">
+          <textarea rows={3} value={form.notes}
+            onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} className="input-line resize-none" />
+        </Field>
+        <div className="flex gap-3">
+          <button type="button" onClick={onClose} className="btn-secondary flex-1">Cancel</button>
+          <button type="submit" className="btn-primary flex-1">Save Changes</button>
+        </div>
+        <div className="border-t border-gray-100 pt-5">
+          <button type="button" onClick={() => setConfirming(true)}
+            className="flex items-center gap-1.5 text-[11px] text-red-400 hover:text-red-600 uppercase tracking-[0.1em] transition-colors">
+            <Trash2 className="w-3.5 h-3.5" /> Delete this task
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
 // ─── Tasks tab ────────────────────────────────────────────────────────────────
 const SOURCE_LABEL = {
   manual:         null,
@@ -602,7 +716,7 @@ const SOURCE_LABEL = {
   life_event:     'From a life event',
 };
 
-function PersonTasksTab({ tasks, onAdd, onToggle, onSnooze, onDelete, onPromote, onArchive }) {
+function PersonTasksTab({ tasks, onAdd, onCheckboxClick, onRowClick, onSnooze, onPromote, onArchive }) {
   const open      = tasks.filter(t => !t.completed).sort((a, b) => new Date(a.dueAt || 0) - new Date(b.dueAt || 0));
   const completed = tasks.filter(t => t.completed);
 
@@ -624,13 +738,17 @@ function PersonTasksTab({ tasks, onAdd, onToggle, onSnooze, onDelete, onPromote,
         {open.map(t => {
           const due = formatDue(t.dueAt);
           const isPromote = t.reminderKind === 'promote_or_archive';
+          const isEditable = t.sourceType !== 'reminder';
           return (
             <div key={t.id} className="py-5 flex items-start gap-4">
               {!isPromote && (
-                <button onClick={() => onToggle(t.id)}
+                <button onClick={() => onCheckboxClick(t)}
                   className="mt-0.5 w-4 h-4 rounded border border-gray-300 flex-shrink-0 hover:border-[#2A9D8F] transition-colors" />
               )}
-              <div className="flex-1 min-w-0">
+              <div
+                className={`flex-1 min-w-0 ${isEditable ? 'cursor-pointer' : ''}`}
+                onClick={isEditable ? () => onRowClick(t) : undefined}
+              >
                 <p className="text-sm text-black">{t.label}</p>
                 {t.notes && <p className="text-xs text-gray-500 mt-1">{t.notes}</p>}
                 <div className="flex items-center gap-2 mt-1.5 flex-wrap">
@@ -648,35 +766,25 @@ function PersonTasksTab({ tasks, onAdd, onToggle, onSnooze, onDelete, onPromote,
                 </div>
                 {isPromote && (
                   <div className="flex gap-2 mt-3">
-                    <button onClick={() => onPromote(t.id)}
+                    <button onClick={(e) => { e.stopPropagation(); onPromote(t.id); }}
                       className="text-[10px] font-medium text-[#2A9D8F] hover:bg-teal-50 border border-teal-200 px-3 py-1.5 rounded-lg transition-colors">
                       Promote to Active Relationships
                     </button>
-                    <button onClick={() => onArchive(t.id)}
+                    <button onClick={(e) => { e.stopPropagation(); onArchive(t.id); }}
                       className="text-[10px] font-medium text-gray-500 hover:bg-gray-100 border border-gray-200 px-3 py-1.5 rounded-lg transition-colors">
                       Archive
                     </button>
                   </div>
                 )}
               </div>
-              {!isPromote && (
-                <div className="flex items-center gap-1 flex-shrink-0">
-                  {t.sourceType === 'reminder' && (
-                    <div className="flex gap-1">
-                      {[1, 3, 7].map(d => (
-                        <button key={d} onClick={() => onSnooze(t.id, d)}
-                          className="text-[10px] text-gray-400 hover:text-[#2A9D8F] px-1.5 py-1 transition-colors">
-                          +{d}d
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                  {t.sourceType !== 'reminder' && (
-                    <button onClick={() => onDelete(t.id)}
-                      className="text-gray-300 hover:text-red-500 transition-colors p-1">
-                      <Trash2 className="w-3.5 h-3.5" />
+              {!isPromote && t.sourceType === 'reminder' && (
+                <div className="flex gap-1 flex-shrink-0">
+                  {[1, 3, 7].map(d => (
+                    <button key={d} onClick={() => onSnooze(t.id, d)}
+                      className="text-[10px] text-gray-400 hover:text-[#2A9D8F] px-1.5 py-1 transition-colors">
+                      +{d}d
                     </button>
-                  )}
+                  ))}
                 </div>
               )}
             </div>
@@ -714,13 +822,15 @@ export default function PersonDetail() {
     addLifeEvent:       ctxAddLifeEvent,
     markContacted,
   } = usePeople();
-  const { tasks, addTask, toggleComplete, snoozeTask, deleteTask } = useTasks();
+  const { tasks, addTask, updateTask, toggleComplete, snoozeTask, deleteTask } = useTasks();
   const { userProfile } = useAuth();
   const person = people.find(p => p.id === id);
   const innerCircleCount = people.filter(p => p.circle === 'Inner Circle' && p.pastorId === userProfile?.id).length;
 
   const [activeTab, setActiveTab]         = useState('Overview');
   const [modal, setModal]                 = useState(null);
+  const [completingTask, setCompletingTask] = useState(null);
+  const [editingTask, setEditingTask]       = useState(null);
   const [photoUploading, setPhotoUploading] = useState(false);
 
   async function handlePhotoUpload(e) {
@@ -779,12 +889,23 @@ export default function PersonDetail() {
         sourceType: 'life_event', sourceId: ev.id,
       });
     },
-    toggleTask: (taskId) => {
-      const task = personTasks.find(t => t.id === taskId);
-      if (task) resolveTaskToggle(task, { toggleComplete, markContacted });
+    checkboxClick: (task) => {
+      if (task.completed) toggleComplete(task.id); // un-complete, no modal needed
+      else setCompletingTask(task);
+    },
+    confirmComplete: async (form) => {
+      await completeTaskWithLog(completingTask, form, { toggleComplete, markContacted, addConversation: ctxAddConversation });
+      setCompletingTask(null);
+    },
+    editTaskSave: (form) => {
+      updateTask(editingTask.id, { label: form.title.trim(), notes: form.notes.trim(), dueAt: form.dueDate || null });
+      setEditingTask(null);
+    },
+    editTaskDelete: () => {
+      deleteTask(editingTask.id);
+      setEditingTask(null);
     },
     snoozeTask: (taskId, days) => snoozeTask(taskId, days),
-    deleteTask: (taskId) => deleteTask(taskId),
     promote: async (taskId) => {
       await updatePerson(id, { circle: 'Active Relationships' });
       await toggleComplete(taskId);
@@ -871,9 +992,9 @@ export default function PersonDetail() {
           <PersonTasksTab
             tasks={personTasks}
             onAdd={() => setModal('addTask')}
-            onToggle={handlers.toggleTask}
+            onCheckboxClick={handlers.checkboxClick}
+            onRowClick={setEditingTask}
             onSnooze={handlers.snoozeTask}
-            onDelete={handlers.deleteTask}
             onPromote={handlers.promote}
             onArchive={handlers.archive}
           />
@@ -886,6 +1007,8 @@ export default function PersonDetail() {
       {modal === 'addPrayer'       && <AddPrayerModal onSave={handlers.addPrayer} onClose={() => setModal(null)} />}
       {modal === 'addLifeEvent'    && <AddLifeEventModal onSave={handlers.addLifeEvent} onClose={() => setModal(null)} />}
       {modal === 'addTask'         && <AddTaskModal onSave={handlers.addManualTask} onClose={() => setModal(null)} />}
+      {completingTask && <CompleteTaskModal task={completingTask} onConfirm={handlers.confirmComplete} onClose={() => setCompletingTask(null)} />}
+      {editingTask && <EditTaskModal task={editingTask} onSave={handlers.editTaskSave} onDelete={handlers.editTaskDelete} onClose={() => setEditingTask(null)} />}
     </div>
   );
 }

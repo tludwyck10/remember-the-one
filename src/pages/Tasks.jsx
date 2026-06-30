@@ -4,7 +4,7 @@ import { Plus, X, Trash2, ChevronDown } from 'lucide-react';
 import { useTasks } from '../context/TasksContext';
 import { usePeople } from '../context/PeopleContext';
 import { useAuth } from '../context/AuthContext';
-import { resolveTaskToggle } from '../lib/reminders';
+import { completeTaskWithLog } from '../lib/taskCompletion';
 
 const BUCKET_ORDER = ['Overdue', 'Due Today', 'This Week', 'Later', 'No Due Date'];
 
@@ -23,6 +23,8 @@ const SOURCE_FILTERS = [
   ['prayer_request', 'Prayer'],
   ['life_event',     'Life Event'],
 ];
+
+const CONTACT_METHODS = ['Text', 'Call', 'In Person', 'Other'];
 
 function bucketFor(task) {
   if (!task.dueAt) return 'No Due Date';
@@ -122,26 +124,149 @@ function AddTaskModal({ people, onSave, onClose }) {
   );
 }
 
+// ─── Complete Task Modal ──────────────────────────────────────────────────────
+function CompleteTaskModal({ task, onConfirm, onClose }) {
+  const [method, setMethod] = useState('');
+  const [notes, setNotes]   = useState('');
+  const [saving, setSaving] = useState(false);
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    setSaving(true);
+    await onConfirm({ method, notes });
+  }
+
+  return (
+    <Modal title="Mark Complete" onClose={onClose}>
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <div>
+          <p className="text-sm text-gray-800 font-medium">{task.label}</p>
+          <p className="text-xs text-gray-400 mt-1">Log how you connected — totally optional.</p>
+        </div>
+        <div>
+          <label className="section-label block mb-3">Method</label>
+          <div className="grid grid-cols-4 gap-2">
+            {CONTACT_METHODS.map(m => (
+              <button key={m} type="button" onClick={() => setMethod(m === method ? '' : m)}
+                className={`py-2 text-[10px] uppercase tracking-[0.08em] font-medium rounded-lg border transition-all ${
+                  method === m
+                    ? 'bg-[#2A9D8F] text-white border-[#2A9D8F]'
+                    : 'bg-white text-gray-500 border-gray-200 hover:border-[#2A9D8F]'
+                }`}>
+                {m}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div>
+          <label className="section-label block mb-2">Notes <span className="text-gray-300">(optional)</span></label>
+          <textarea rows={3} autoFocus value={notes} onChange={e => setNotes(e.target.value)}
+            placeholder="What did you talk about?" className="input-line resize-none" />
+        </div>
+        <div className="flex gap-3 pt-1">
+          <button type="button" onClick={onClose} className="btn-secondary flex-1">Cancel</button>
+          <button type="submit" disabled={saving} className="btn-primary flex-1 disabled:opacity-60">
+            {saving ? 'Saving...' : 'Mark Complete'}
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+// ─── Edit Task Modal (manual / linked tasks only) ────────────────────────────
+function EditTaskModal({ task, onSave, onDelete, onClose }) {
+  const [form, setForm] = useState({
+    label:   task.label,
+    dueDate: task.dueAt ? new Date(task.dueAt).toISOString().split('T')[0] : '',
+    notes:   task.notes || '',
+  });
+  const [error, setError] = useState('');
+  const [confirming, setConfirming] = useState(false);
+
+  function set(field, value) {
+    setForm(f => ({ ...f, [field]: value }));
+    if (field === 'label') setError('');
+  }
+
+  function handleSubmit(e) {
+    e.preventDefault();
+    if (!form.label.trim()) { setError('Add a task title.'); return; }
+    onSave(form);
+  }
+
+  if (confirming) {
+    return (
+      <Modal title="Delete Task?" onClose={() => setConfirming(false)}>
+        <p className="text-sm text-gray-600 leading-relaxed mb-8">
+          Delete "<strong>{task.label}</strong>"? This can't be undone.
+        </p>
+        <div className="flex gap-3">
+          <button onClick={() => setConfirming(false)} className="btn-secondary flex-1">Cancel</button>
+          <button onClick={onDelete} className="flex-1 bg-red-600 text-white text-[11px] uppercase tracking-[0.15em] font-medium py-3 rounded-lg hover:bg-red-700 transition-colors">
+            Yes, Delete
+          </button>
+        </div>
+      </Modal>
+    );
+  }
+
+  return (
+    <Modal title="Edit Task" onClose={onClose}>
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <div>
+          <label className="section-label block mb-2">Title</label>
+          <input type="text" autoFocus value={form.label} onChange={e => set('label', e.target.value)} className="input-line" />
+          {error && <p className="text-[11px] text-red-500 mt-1">{error}</p>}
+        </div>
+        <div>
+          <label className="section-label block mb-2">Due Date <span className="text-gray-300">(optional)</span></label>
+          <input type="date" value={form.dueDate} onChange={e => set('dueDate', e.target.value)} className="input-line" />
+        </div>
+        <div>
+          <label className="section-label block mb-2">Notes <span className="text-gray-300">(optional)</span></label>
+          <textarea rows={3} value={form.notes} onChange={e => set('notes', e.target.value)} className="input-line resize-none" />
+        </div>
+        <div className="flex gap-3 pt-1">
+          <button type="button" onClick={onClose} className="btn-secondary flex-1">Cancel</button>
+          <button type="submit" className="btn-primary flex-1">Save Changes</button>
+        </div>
+        <div className="border-t border-gray-100 pt-5">
+          <button type="button" onClick={() => setConfirming(true)}
+            className="flex items-center gap-1.5 text-[11px] text-red-400 hover:text-red-600 uppercase tracking-[0.1em] transition-colors">
+            <Trash2 className="w-3.5 h-3.5" /> Delete this task
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
 // ─── Task row ─────────────────────────────────────────────────────────────────
-function TaskRow({ task, onToggle, onSnooze, onDelete, onPromote, onArchive }) {
+function TaskRow({ task, onCheckboxClick, onRowClick, onSnooze, onPromote, onArchive }) {
   const isPromote = task.reminderKind === 'promote_or_archive';
+  const isEditable = task.sourceType !== 'reminder';
   const due = formatDue(task.dueAt);
   const overdue = bucketFor(task) === 'Overdue';
 
   return (
     <div className="flex items-center gap-4 px-5 py-4 hover:bg-gray-50 transition-colors">
       {!isPromote && (
-        <button onClick={() => onToggle(task.id)}
+        <button onClick={() => onCheckboxClick(task)}
           className={`w-4 h-4 rounded border flex-shrink-0 transition-colors ${
             task.completed ? 'bg-[#2A9D8F] border-[#2A9D8F]' : 'border-gray-300 hover:border-[#2A9D8F]'
           }`} />
       )}
-      <div className="flex-1 min-w-0">
+      <div
+        className={`flex-1 min-w-0 ${isEditable ? 'cursor-pointer' : ''}`}
+        onClick={isEditable ? () => onRowClick(task) : undefined}
+      >
         <p className={`text-sm font-medium ${task.completed ? 'line-through text-gray-400' : 'text-gray-900'}`}>
           {task.label}
         </p>
         <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-          <Link to={`/people/${task.personId}`} className="text-[10px] text-[#2A9D8F] hover:underline">
+          <Link to={`/people/${task.personId}`} onClick={e => e.stopPropagation()}
+            className="text-[10px] text-[#2A9D8F] hover:underline">
             {task.personName}
           </Link>
           {due && (
@@ -172,20 +297,14 @@ function TaskRow({ task, onToggle, onSnooze, onDelete, onPromote, onArchive }) {
           </div>
         )}
       </div>
-      {!isPromote && !task.completed && (
+      {!isPromote && !task.completed && task.sourceType === 'reminder' && (
         <div className="flex items-center gap-1 flex-shrink-0">
-          {task.sourceType === 'reminder' ? (
-            [1, 3, 7].map(d => (
-              <button key={d} onClick={() => onSnooze(task.id, d)}
-                className="text-[10px] text-gray-400 hover:text-[#2A9D8F] px-1.5 py-1 transition-colors">
-                +{d}d
-              </button>
-            ))
-          ) : (
-            <button onClick={() => onDelete(task.id)} className="text-gray-300 hover:text-red-500 transition-colors p-1">
-              <Trash2 className="w-3.5 h-3.5" />
+          {[1, 3, 7].map(d => (
+            <button key={d} onClick={() => onSnooze(task.id, d)}
+              className="text-[10px] text-gray-400 hover:text-[#2A9D8F] px-1.5 py-1 transition-colors">
+              +{d}d
             </button>
-          )}
+          ))}
         </div>
       )}
     </div>
@@ -194,10 +313,12 @@ function TaskRow({ task, onToggle, onSnooze, onDelete, onPromote, onArchive }) {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function Tasks() {
-  const { tasks, toggleComplete, addTask, snoozeTask, deleteTask } = useTasks();
-  const { people, updatePerson, markContacted } = usePeople();
+  const { tasks, toggleComplete, addTask, updateTask, deleteTask, snoozeTask } = useTasks();
+  const { people, updatePerson, markContacted, addConversation } = usePeople();
   const { userProfile } = useAuth();
   const [showModal, setShowModal]     = useState(false);
+  const [completingTask, setCompletingTask] = useState(null);
+  const [editingTask, setEditingTask]       = useState(null);
   const [sourceFilter, setSourceFilter] = useState('all');
   const [personFilter, setPersonFilter] = useState('all');
   const [showCompleted, setShowCompleted] = useState(false);
@@ -226,10 +347,17 @@ export default function Tasks() {
   const completedTasks = filtered.filter(t => t.completed);
   const overdueCount   = grouped['Overdue'].length;
 
-  async function handleToggle(taskId) {
-    const task = myTasks.find(t => t.id === taskId);
-    if (!task) return;
-    await resolveTaskToggle(task, { toggleComplete, markContacted });
+  function handleCheckboxClick(task) {
+    if (task.completed) {
+      toggleComplete(task.id); // un-complete, no modal needed
+    } else {
+      setCompletingTask(task);
+    }
+  }
+
+  async function handleConfirmComplete(form) {
+    await completeTaskWithLog(completingTask, form, { toggleComplete, markContacted, addConversation });
+    setCompletingTask(null);
   }
 
   async function handlePromote(task) {
@@ -253,6 +381,24 @@ export default function Tasks() {
     });
     setShowModal(false);
   }
+
+  function handleEditSave(form) {
+    updateTask(editingTask.id, { label: form.label.trim(), notes: form.notes.trim(), dueAt: form.dueDate || null });
+    setEditingTask(null);
+  }
+
+  function handleEditDelete() {
+    deleteTask(editingTask.id);
+    setEditingTask(null);
+  }
+
+  const rowProps = {
+    onCheckboxClick: handleCheckboxClick,
+    onRowClick:      setEditingTask,
+    onSnooze:        snoozeTask,
+    onPromote:       handlePromote,
+    onArchive:       handleArchive,
+  };
 
   return (
     <div className="page-enter min-h-full">
@@ -320,17 +466,7 @@ export default function Tasks() {
                 <span className="text-[10px] text-gray-400">({items.length})</span>
               </div>
               <div className="divide-y divide-gray-50">
-                {items.map(task => (
-                  <TaskRow
-                    key={task.id}
-                    task={task}
-                    onToggle={handleToggle}
-                    onSnooze={snoozeTask}
-                    onDelete={deleteTask}
-                    onPromote={handlePromote}
-                    onArchive={handleArchive}
-                  />
-                ))}
+                {items.map(task => <TaskRow key={task.id} task={task} {...rowProps} />)}
               </div>
             </div>
           );
@@ -344,17 +480,7 @@ export default function Tasks() {
               <span className="text-[10px] text-gray-400">({completedTasks.length})</span>
             </div>
             <div className="divide-y divide-gray-50">
-              {completedTasks.map(task => (
-                <TaskRow
-                  key={task.id}
-                  task={task}
-                  onToggle={toggleComplete}
-                  onSnooze={snoozeTask}
-                  onDelete={deleteTask}
-                  onPromote={handlePromote}
-                  onArchive={handleArchive}
-                />
-              ))}
+              {completedTasks.map(task => <TaskRow key={task.id} task={task} {...rowProps} />)}
             </div>
           </div>
         )}
@@ -362,6 +488,12 @@ export default function Tasks() {
 
       {showModal && (
         <AddTaskModal people={myPeople} onSave={handleSave} onClose={() => setShowModal(false)} />
+      )}
+      {completingTask && (
+        <CompleteTaskModal task={completingTask} onConfirm={handleConfirmComplete} onClose={() => setCompletingTask(null)} />
+      )}
+      {editingTask && (
+        <EditTaskModal task={editingTask} onSave={handleEditSave} onDelete={handleEditDelete} onClose={() => setEditingTask(null)} />
       )}
     </div>
   );

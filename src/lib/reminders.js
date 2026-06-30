@@ -16,16 +16,6 @@ export const TIER_INTERVAL_DAYS = {
 export const NEW_CONNECTION_STEP1_DAYS = 3;
 export const NEW_CONNECTION_STEP2_DAYS = 14;
 
-// Completing a recurring cadence reminder means "I connected with them" — it
-// must advance the contact's last_contacted_at, or the reminder engine just
-// recreates the same overdue task on the next sync pass.
-export async function resolveTaskToggle(task, { toggleComplete, markContacted }) {
-  if (!task.completed && task.sourceType === 'reminder' && task.reminderKind === 'cadence') {
-    await markContacted(task.personId);
-  }
-  await toggleComplete(task.id);
-}
-
 function addDays(date, days) {
   return new Date(date.getTime() + days * DAY);
 }
