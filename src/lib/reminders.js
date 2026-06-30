@@ -29,6 +29,7 @@ function reminderLabel(kind, personName) {
     case 'promote_or_archive':  return `Promote ${personName} or archive?`;
     case 'birthday':            return `Wish ${personName} a happy birthday!`;
     case 'birthday_advance':    return `${personName}'s birthday is in a week`;
+    case 'prayer_followup':     return `Pray for ${personName}`;
     default:                    return `Follow up with ${personName}`;
   }
 }
@@ -166,6 +167,44 @@ export function computeReminderActions(people, tasks, userId) {
       if (staleAdvance) toDelete.push(staleAdvance.id);
     }
 
+    // Daily prayer follow-up reminders apply regardless of tier, one per
+    // Ongoing prayer request (keyed by source_id, since a person can have
+    // several ongoing requests at once, each needing its own reminder).
+    // Unlike other reminders, completing this one doesn't create a new row —
+    // it bumps this same row's due date forward a day in place (see
+    // src/lib/taskCompletion.js), so there's nothing to do here once the
+    // reminder already exists; we only create it on first becoming Ongoing,
+    // and delete it once the request stops being Ongoing.
+    for (const prayer of person.prayerRequests || []) {
+      const openFollowup = tasks.find(t =>
+        t.personId === person.id && t.sourceType === 'reminder' &&
+        t.reminderKind === 'prayer_followup' && t.sourceId === prayer.id && !t.completed
+      );
+      if (prayer.status === 'Ongoing') {
+        if (!openFollowup) {
+          const snippet = prayer.request.length > 50 ? `${prayer.request.slice(0, 50)}…` : prayer.request;
+          toCreate.push({
+            personId: person.id, personName: person.name,
+            reminderKind: 'prayer_followup', sourceId: prayer.id,
+            dueAt: now,
+            label: `Pray for ${person.name}: ${snippet}`,
+          });
+        }
+      } else if (openFollowup) {
+        toDelete.push(openFollowup.id);
+      }
+    }
+    // Orphan cleanup: a prayer request that was deleted outright (not just
+    // changed status) won't be in person.prayerRequests at all, so the loop
+    // above never sees it — catch any open follow-up left pointing at a
+    // request that no longer exists.
+    const currentPrayerIds = new Set((person.prayerRequests || []).map(p => p.id));
+    for (const t of openReminders) {
+      if (t.reminderKind === 'prayer_followup' && !currentPrayerIds.has(t.sourceId)) {
+        toDelete.push(t.id);
+      }
+    }
+
     if (person.circle === 'New Connections') {
       // Any leftover cadence reminder from a previous tier should go away.
       const staleCadence = openReminders.find(t => t.reminderKind === 'cadence');
@@ -202,7 +241,7 @@ export function computeReminderActions(people, tasks, userId) {
     if (CADENCE_TIERS.includes(person.circle)) {
       // Any leftover new-connection sequence tasks from a previous tier should go away.
       for (const t of openReminders) {
-        if (!['cadence', 'birthday', 'birthday_advance'].includes(t.reminderKind)) toDelete.push(t.id);
+        if (!['cadence', 'birthday', 'birthday_advance', 'prayer_followup'].includes(t.reminderKind)) toDelete.push(t.id);
       }
 
       const interval = TIER_INTERVAL_DAYS[person.circle];
@@ -229,5 +268,5 @@ export function computeReminderActions(people, tasks, userId) {
     }
   }
 
-  return { toCreate: toCreate.map(c => ({ ...c, label: reminderLabel(c.reminderKind, c.personName) })), toUpdate, toDelete };
+  return { toCreate: toCreate.map(c => ({ ...c, label: c.label || reminderLabel(c.reminderKind, c.personName) })), toUpdate, toDelete };
 }

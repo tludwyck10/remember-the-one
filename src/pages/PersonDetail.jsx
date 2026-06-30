@@ -473,8 +473,79 @@ function Conversations({ person, onAdd }) {
   );
 }
 
+// ─── Edit Prayer Request modal ────────────────────────────────────────────────
+const PRAYER_STATUSES = ['Active', 'Ongoing', 'Answered'];
+
+function EditPrayerModal({ prayer, onSave, onDelete, onClose }) {
+  const [form, setForm] = useState({ request: prayer.request, status: prayer.status });
+  const [error, setError] = useState('');
+  const [confirming, setConfirming] = useState(false);
+
+  function handleSubmit(e) {
+    e.preventDefault();
+    if (!form.request.trim()) { setError('Describe the prayer request.'); return; }
+    onSave(form);
+  }
+
+  if (confirming) {
+    return (
+      <Modal title="Delete Prayer Request?" onClose={() => setConfirming(false)}>
+        <p className="text-sm text-gray-600 leading-relaxed mb-8">
+          Delete this prayer request? This can't be undone.
+        </p>
+        <div className="flex gap-3">
+          <button onClick={() => setConfirming(false)} className="btn-secondary flex-1">Cancel</button>
+          <button onClick={onDelete} className="flex-1 bg-red-600 text-white text-[11px] uppercase tracking-[0.15em] font-medium py-3 rounded-lg hover:bg-red-700 transition-colors">
+            Yes, Delete
+          </button>
+        </div>
+      </Modal>
+    );
+  }
+
+  return (
+    <Modal title="Edit Prayer Request" onClose={onClose}>
+      <form onSubmit={handleSubmit} className="space-y-7">
+        <Field label="Request">
+          <textarea rows={4} autoFocus value={form.request}
+            onChange={e => { setForm(f => ({ ...f, request: e.target.value })); setError(''); }}
+            className="input-line resize-none" />
+          {error && <p className="text-[11px] text-red-500 mt-1">{error}</p>}
+        </Field>
+        <Field label="Status">
+          <div className="grid grid-cols-3 gap-2">
+            {PRAYER_STATUSES.map(s => (
+              <button key={s} type="button" onClick={() => setForm(f => ({ ...f, status: s }))}
+                className={`py-2.5 text-[10px] uppercase tracking-[0.1em] font-medium rounded-lg border transition-all ${
+                  form.status === s
+                    ? 'bg-[#2A9D8F] text-white border-[#2A9D8F]'
+                    : 'bg-white text-gray-500 border-gray-200 hover:border-[#2A9D8F] hover:text-[#2A9D8F]'
+                }`}>
+                {s}
+              </button>
+            ))}
+          </div>
+          {form.status === 'Ongoing' && (
+            <p className="text-[10px] text-gray-400 mt-2">You'll get a daily reminder to keep praying for this until it's marked Answered.</p>
+          )}
+        </Field>
+        <div className="flex gap-3">
+          <button type="button" onClick={onClose} className="btn-secondary flex-1">Cancel</button>
+          <button type="submit" className="btn-primary flex-1">Save Changes</button>
+        </div>
+        <div className="border-t border-gray-100 pt-5">
+          <button type="button" onClick={() => setConfirming(true)}
+            className="flex items-center gap-1.5 text-[11px] text-red-400 hover:text-red-600 uppercase tracking-[0.1em] transition-colors">
+            <Trash2 className="w-3.5 h-3.5" /> Delete this request
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
 // ─── Prayer Requests ──────────────────────────────────────────────────────────
-function PrayerRequests({ person, onAdd, onMarkAnswered, onFollowUp }) {
+function PrayerRequests({ person, onAdd, onMarkAnswered, onUndoAnswered, onFollowUp, onEdit }) {
   return (
     <div>
       <div className="flex justify-end py-4 border-b border-gray-100">
@@ -492,12 +563,18 @@ function PrayerRequests({ person, onAdd, onMarkAnswered, onFollowUp }) {
       <div className="divide-y divide-[#E8E8E8]">
         {person.prayerRequests.map(pr => (
           <div key={pr.id} className="py-6 flex items-start justify-between gap-4">
-            <div className="flex-1">
+            <div className="flex-1 cursor-pointer" onClick={() => onEdit(pr)}>
               <p className="text-sm text-black leading-relaxed">{pr.request}</p>
-              <div className="flex items-center gap-3 mt-2">
+              <div className="flex items-center gap-3 mt-2 flex-wrap">
                 <p className="text-[10px] text-gray-400">{pr.dateAdded}</p>
                 <span className="text-gray-300">·</span>
                 <p className="text-[10px] text-gray-400">{pr.daysActive} days</p>
+                {pr.status === 'Ongoing' && (
+                  <>
+                    <span className="text-gray-300">·</span>
+                    <p className="text-[10px] uppercase tracking-[0.1em] text-blue-500">Ongoing — daily reminder</p>
+                  </>
+                )}
                 {pr.status === 'Answered' && (
                   <>
                     <span className="text-gray-300">·</span>
@@ -508,14 +585,17 @@ function PrayerRequests({ person, onAdd, onMarkAnswered, onFollowUp }) {
             </div>
             <div className="flex flex-col items-end gap-2 flex-shrink-0">
               {pr.status !== 'Answered' ? (
-                <button onClick={() => onMarkAnswered(pr.id)}
+                <button onClick={(e) => { e.stopPropagation(); onMarkAnswered(pr.id); }}
                   className="text-[10px] font-medium text-[#2A9D8F] hover:bg-teal-50 border border-teal-200 px-3 py-1.5 rounded-lg transition-colors">
                   Mark Answered
                 </button>
               ) : (
-                <span className="text-[10px] uppercase tracking-[0.1em] text-gray-400 bg-gray-100 px-2.5 py-1 rounded-full">Answered</span>
+                <button onClick={(e) => { e.stopPropagation(); onUndoAnswered(pr.id); }}
+                  className="text-[10px] font-medium text-gray-500 hover:bg-gray-100 border border-gray-200 px-3 py-1.5 rounded-lg transition-colors">
+                  Undo
+                </button>
               )}
-              <button onClick={() => onFollowUp(pr)}
+              <button onClick={(e) => { e.stopPropagation(); onFollowUp(pr); }}
                 className="text-[10px] text-gray-400 hover:text-[#2A9D8F] transition-colors">
                 + Follow up on this
               </button>
@@ -833,10 +913,12 @@ export default function PersonDetail() {
     updatePerson,
     deletePerson,
     updateCllStage,
-    addConversation:    ctxAddConversation,
-    addPrayerRequest:   ctxAddPrayerRequest,
-    markPrayerAnswered: ctxMarkPrayerAnswered,
-    addLifeEvent:       ctxAddLifeEvent,
+    addConversation:     ctxAddConversation,
+    addPrayerRequest:    ctxAddPrayerRequest,
+    markPrayerAnswered:  ctxMarkPrayerAnswered,
+    updatePrayerRequest: ctxUpdatePrayerRequest,
+    deletePrayerRequest: ctxDeletePrayerRequest,
+    addLifeEvent:        ctxAddLifeEvent,
     markContacted,
   } = usePeople();
   const { tasks, addTask, updateTask, toggleComplete, snoozeTask, deleteTask } = useTasks();
@@ -848,6 +930,7 @@ export default function PersonDetail() {
   const [modal, setModal]                 = useState(null);
   const [completingTask, setCompletingTask] = useState(null);
   const [editingTask, setEditingTask]       = useState(null);
+  const [editingPrayer, setEditingPrayer]   = useState(null);
   const [photoUploading, setPhotoUploading] = useState(false);
 
   async function handlePhotoUpload(e) {
@@ -882,6 +965,9 @@ export default function PersonDetail() {
     addConversation:(conv)  => { ctxAddConversation(id, conv); setModal(null); },
     addPrayer:      (pr)    => { ctxAddPrayerRequest(id, pr); setModal(null); },
     markAnswered:   (pid)   => { ctxMarkPrayerAnswered(id, pid); },
+    undoAnswered:   (pid)   => { ctxUpdatePrayerRequest(id, pid, { status: 'Active' }); },
+    editPrayerSave: (form)  => { ctxUpdatePrayerRequest(id, editingPrayer.id, form); setEditingPrayer(null); },
+    editPrayerDelete: ()    => { ctxDeletePrayerRequest(id, editingPrayer.id); setEditingPrayer(null); },
     addLifeEvent:   (ev)    => { ctxAddLifeEvent(id, ev); setModal(null); },
     setStage:       (stage) => { updateCllStage(id, stage); },
     addManualTask:  (form)  => {
@@ -911,7 +997,7 @@ export default function PersonDetail() {
       else setCompletingTask(task);
     },
     confirmComplete: async (form) => {
-      await completeTaskWithLog(completingTask, form, { toggleComplete, markContacted, addConversation: ctxAddConversation, addTask });
+      await completeTaskWithLog(completingTask, form, { toggleComplete, markContacted, addConversation: ctxAddConversation, addTask, updateTask });
       setCompletingTask(null);
     },
     editTaskSave: (form) => {
@@ -1008,7 +1094,16 @@ export default function PersonDetail() {
       <div className="px-8 pb-16 pt-2">
         {activeTab === 'Overview'        && <Overview person={person} upcomingTasks={upcomingTasks} onStageChange={handlers.setStage} />}
         {activeTab === 'Conversations'   && <Conversations person={person} onAdd={() => setModal('logConversation')} />}
-        {activeTab === 'Prayer Requests' && <PrayerRequests person={person} onAdd={() => setModal('addPrayer')} onMarkAnswered={handlers.markAnswered} onFollowUp={handlers.followUpOnPrayer} />}
+        {activeTab === 'Prayer Requests' && (
+          <PrayerRequests
+            person={person}
+            onAdd={() => setModal('addPrayer')}
+            onMarkAnswered={handlers.markAnswered}
+            onUndoAnswered={handlers.undoAnswered}
+            onFollowUp={handlers.followUpOnPrayer}
+            onEdit={setEditingPrayer}
+          />
+        )}
         {activeTab === 'Life Events'     && <LifeEvents person={person} onAdd={() => setModal('addLifeEvent')} onFollowUp={handlers.followUpOnLifeEvent} />}
         {activeTab === 'Tasks'           && (
           <PersonTasksTab
@@ -1028,6 +1123,7 @@ export default function PersonDetail() {
       {modal === 'editContact'     && <EditContactModal person={person} innerCircleCount={innerCircleCount} onSave={handlers.editSave} onDelete={handlers.delete} onClose={() => setModal(null)} />}
       {modal === 'logConversation' && <LogConversationModal onSave={handlers.addConversation} onClose={() => setModal(null)} />}
       {modal === 'addPrayer'       && <AddPrayerModal onSave={handlers.addPrayer} onClose={() => setModal(null)} />}
+      {editingPrayer && <EditPrayerModal prayer={editingPrayer} onSave={handlers.editPrayerSave} onDelete={handlers.editPrayerDelete} onClose={() => setEditingPrayer(null)} />}
       {modal === 'addLifeEvent'    && <AddLifeEventModal onSave={handlers.addLifeEvent} onClose={() => setModal(null)} />}
       {modal === 'addTask'         && <AddTaskModal onSave={handlers.addManualTask} onClose={() => setModal(null)} />}
       {completingTask && <CompleteTaskModal task={completingTask} onConfirm={handlers.confirmComplete} onClose={() => setCompletingTask(null)} />}

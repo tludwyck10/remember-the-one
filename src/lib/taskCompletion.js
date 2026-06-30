@@ -1,7 +1,7 @@
 // Shared "mark task complete" logic used by both the global Tasks page and the
 // per-contact Tasks tab. Completing a task can optionally log how the contact
 // happened — if logged, that becomes a real Conversation entry on the person.
-export async function completeTaskWithLog(task, { method, notes }, { toggleComplete, markContacted, addConversation, addTask }) {
+export async function completeTaskWithLog(task, { method, notes }, { toggleComplete, markContacted, addConversation, addTask, updateTask }) {
   const trimmedNotes = (notes || '').trim();
   const hasLog = !!method || !!trimmedNotes;
 
@@ -17,6 +17,18 @@ export async function completeTaskWithLog(task, { method, notes }, { toggleCompl
     // No log entered — still advance the cadence so the reminder doesn't
     // immediately recreate itself with the same overdue date.
     await markContacted(task.personId);
+  }
+
+  // Daily prayer follow-ups recur in place rather than completing outright —
+  // they're meant to keep nudging until the prayer request itself is marked
+  // Answered (which deletes the reminder via the engine), not "finished" the
+  // way a one-off task is. So: just roll the due date forward a day and stop.
+  const isPrayerFollowup = task.sourceType === 'reminder' && task.reminderKind === 'prayer_followup';
+  if (isPrayerFollowup && updateTask && task.dueAt) {
+    const nextDue = new Date(task.dueAt);
+    nextDue.setDate(nextDue.getDate() + 1);
+    await updateTask(task.id, { dueAt: nextDue });
+    return;
   }
 
   await toggleComplete(task.id);

@@ -225,17 +225,43 @@ export function PeopleProvider({ children }) {
   }
 
   async function markPrayerAnswered(personId, prayerId) {
-    patchPerson(personId, p => ({
-      ...p,
-      prayerRequests: p.prayerRequests.map(r =>
-        r.id === prayerId ? { ...r, status: 'Answered' } : r
-      ),
-      prayerCount: Math.max(0, p.prayerCount - 1),
-    }));
+    await updatePrayerRequest(personId, prayerId, { status: 'Answered' });
+  }
 
+  async function updatePrayerRequest(personId, prayerId, changes) {
+    patchPerson(personId, p => {
+      const prayerRequests = p.prayerRequests.map(r =>
+        r.id === prayerId ? { ...r, ...changes } : r
+      );
+      return {
+        ...p,
+        prayerRequests,
+        prayerCount: prayerRequests.filter(r => r.status !== 'Answered').length,
+      };
+    });
+
+    const dbChanges = {};
+    if (changes.request !== undefined) dbChanges.request = changes.request;
+    if (changes.status  !== undefined) dbChanges.status  = changes.status;
+
+    if (Object.keys(dbChanges).length === 0) return;
     const { error } = await supabase.from('prayer_requests')
-      .update({ status: 'Answered' }).eq('id', prayerId);
+      .update(dbChanges).eq('id', prayerId);
     if (error) console.error('Prayer update error:', error);
+  }
+
+  async function deletePrayerRequest(personId, prayerId) {
+    patchPerson(personId, p => {
+      const prayerRequests = p.prayerRequests.filter(r => r.id !== prayerId);
+      return {
+        ...p,
+        prayerRequests,
+        prayerCount: prayerRequests.filter(r => r.status !== 'Answered').length,
+      };
+    });
+
+    const { error } = await supabase.from('prayer_requests').delete().eq('id', prayerId);
+    if (error) console.error('Prayer delete error:', error);
   }
 
   async function addLifeEvent(personId, ev) {
@@ -271,6 +297,8 @@ export function PeopleProvider({ children }) {
       addConversation,
       addPrayerRequest,
       markPrayerAnswered,
+      updatePrayerRequest,
+      deletePrayerRequest,
       addLifeEvent,
     }}>
       {children}

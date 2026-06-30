@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, Check, X } from 'lucide-react';
+import { Plus, Check, X, Trash2 } from 'lucide-react';
 import Avatar from '../components/Avatar';
 import { usePeople } from '../context/PeopleContext';
 import { useAuth } from '../context/AuthContext';
 
 const statusFilters = ['All', 'Active', 'Ongoing', 'Answered'];
+const PRAYER_STATUSES = ['Active', 'Ongoing', 'Answered'];
 
 const statusColors = {
   Active:   'bg-teal-50 text-teal-700 border border-teal-200',
@@ -100,12 +101,92 @@ function AddPrayerModal({ people, onSave, onClose }) {
   );
 }
 
+// ─── Edit Prayer Request Modal ────────────────────────────────────────────────
+function EditPrayerModal({ prayer, onSave, onDelete, onClose }) {
+  const [form, setForm] = useState({ request: prayer.request, status: prayer.status });
+  const [error, setError] = useState('');
+  const [confirming, setConfirming] = useState(false);
+
+  function handleSubmit(e) {
+    e.preventDefault();
+    if (!form.request.trim()) { setError('Describe the prayer request.'); return; }
+    onSave(form);
+  }
+
+  if (confirming) {
+    return (
+      <Modal title="Delete Prayer Request?" onClose={() => setConfirming(false)}>
+        <p className="text-sm text-gray-600 leading-relaxed mb-8">
+          Delete this prayer request? This can't be undone.
+        </p>
+        <div className="flex gap-3">
+          <button onClick={() => setConfirming(false)} className="btn-secondary flex-1">Cancel</button>
+          <button onClick={onDelete} className="flex-1 bg-red-600 text-white text-[11px] uppercase tracking-[0.15em] font-medium py-3 rounded-lg hover:bg-red-700 transition-colors">
+            Yes, Delete
+          </button>
+        </div>
+      </Modal>
+    );
+  }
+
+  return (
+    <Modal title="Edit Prayer Request" onClose={onClose}>
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <div>
+          <label className="section-label block mb-2">Prayer Request</label>
+          <textarea
+            rows={4}
+            autoFocus
+            value={form.request}
+            onChange={e => { setForm(f => ({ ...f, request: e.target.value })); setError(''); }}
+            className="input-line resize-none"
+          />
+          {error && <p className="text-[11px] text-red-500 mt-1">{error}</p>}
+        </div>
+
+        <div>
+          <label className="section-label block mb-3">Status</label>
+          <div className="grid grid-cols-3 gap-2">
+            {PRAYER_STATUSES.map(s => (
+              <button key={s} type="button"
+                onClick={() => setForm(f => ({ ...f, status: s }))}
+                className={`py-2 text-[10px] uppercase tracking-[0.1em] font-medium rounded-lg border transition-all ${
+                  form.status === s
+                    ? 'bg-[#2A9D8F] text-white border-[#2A9D8F]'
+                    : 'bg-white text-gray-500 border-gray-200 hover:border-[#2A9D8F]'
+                }`}>
+                {s}
+              </button>
+            ))}
+          </div>
+          {form.status === 'Ongoing' && (
+            <p className="text-[10px] text-gray-400 mt-2">You'll get a daily reminder to keep praying for this until it's marked Answered.</p>
+          )}
+        </div>
+
+        <div className="flex gap-3 pt-1">
+          <button type="button" onClick={onClose} className="btn-secondary flex-1">Cancel</button>
+          <button type="submit" className="btn-primary flex-1">Save Changes</button>
+        </div>
+
+        <div className="border-t border-gray-100 pt-5">
+          <button type="button" onClick={() => setConfirming(true)}
+            className="flex items-center gap-1.5 text-[11px] text-red-400 hover:text-red-600 uppercase tracking-[0.1em] transition-colors">
+            <Trash2 className="w-3.5 h-3.5" /> Delete this request
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function PrayerRequests() {
-  const { people, addPrayerRequest, markPrayerAnswered } = usePeople();
+  const { people, addPrayerRequest, markPrayerAnswered, updatePrayerRequest, deletePrayerRequest } = usePeople();
   const { userProfile } = useAuth();
   const [filter, setFilter]     = useState('All');
   const [showModal, setShowModal] = useState(false);
+  const [editingPrayer, setEditingPrayer] = useState(null);
 
   const myPeople = people.filter(p => p.pastorId === userProfile?.id);
 
@@ -133,6 +214,16 @@ export default function PrayerRequests() {
     };
     addPrayerRequest(personId, pr);
     setShowModal(false);
+  }
+
+  function handleEditSave(form) {
+    updatePrayerRequest(editingPrayer.personId, editingPrayer.id, form);
+    setEditingPrayer(null);
+  }
+
+  function handleEditDelete() {
+    deletePrayerRequest(editingPrayer.personId, editingPrayer.id);
+    setEditingPrayer(null);
   }
 
   return (
@@ -198,9 +289,9 @@ export default function PrayerRequests() {
         {filtered.map(pr => (
           <div key={pr.id} className="card px-5 py-4 flex items-start gap-4 hover:shadow-md transition-all">
             <Avatar name={pr.personName} size="md" />
-            <div className="flex-1 min-w-0">
+            <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setEditingPrayer(pr)}>
               <div className="flex items-center justify-between gap-3 mb-1">
-                <Link to={`/people/${pr.personId}`}
+                <Link to={`/people/${pr.personId}`} onClick={e => e.stopPropagation()}
                   className="text-sm font-medium text-gray-900 hover:text-[#2A9D8F] transition-colors">
                   {pr.personName}
                 </Link>
@@ -213,10 +304,15 @@ export default function PrayerRequests() {
                 <p className="text-[10px] text-gray-400">{pr.dateAdded}</p>
                 <span className="text-gray-300">·</span>
                 <p className="text-[10px] text-gray-400">{pr.daysActive}d active</p>
-                {pr.status !== 'Answered' && (
-                  <button onClick={() => markPrayerAnswered(pr.personId, pr.id)}
+                {pr.status !== 'Answered' ? (
+                  <button onClick={(e) => { e.stopPropagation(); markPrayerAnswered(pr.personId, pr.id); }}
                     className="ml-auto flex items-center gap-1 text-[10px] font-medium text-[#2A9D8F] hover:bg-teal-50 px-2.5 py-1 rounded-lg transition-colors">
                     <Check className="w-3 h-3" /> Mark Answered
+                  </button>
+                ) : (
+                  <button onClick={(e) => { e.stopPropagation(); updatePrayerRequest(pr.personId, pr.id, { status: 'Active' }); }}
+                    className="ml-auto flex items-center gap-1 text-[10px] font-medium text-gray-500 hover:bg-gray-100 px-2.5 py-1 rounded-lg transition-colors">
+                    Undo
                   </button>
                 )}
               </div>
@@ -230,6 +326,14 @@ export default function PrayerRequests() {
           people={myPeople}
           onSave={handleSave}
           onClose={() => setShowModal(false)}
+        />
+      )}
+      {editingPrayer && (
+        <EditPrayerModal
+          prayer={editingPrayer}
+          onSave={handleEditSave}
+          onDelete={handleEditDelete}
+          onClose={() => setEditingPrayer(null)}
         />
       )}
     </div>

@@ -29,6 +29,7 @@ export default function useReminderSync(people, tasks, { addTask, updateTask, de
           personName:   c.personName,
           label:        c.label,
           sourceType:   'reminder',
+          sourceId:     c.sourceId || null,
           reminderKind: c.reminderKind,
           dueAt:        c.dueAt,
           category:     'This Week',
