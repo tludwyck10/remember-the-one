@@ -243,9 +243,12 @@ function EditTaskModal({ task, onSave, onDelete, onClose }) {
 }
 
 // ─── Task row ─────────────────────────────────────────────────────────────────
-function TaskRow({ task, onCheckboxClick, onRowClick, onSnooze, onPromote, onArchive }) {
+function TaskRow({ task, onCheckboxClick, onRowClick, onSnooze, onDelete, onPromote, onArchive }) {
   const isPromote = task.reminderKind === 'promote_or_archive';
   const isEditable = task.sourceType !== 'reminder';
+  // Open reminders are system-managed (no direct delete), but a completed one
+  // is just history — should be cleanable like anything else.
+  const showQuickDelete = task.completed && task.sourceType === 'reminder';
   const due = formatDue(task.dueAt);
   const overdue = bucketFor(task) === 'Overdue';
 
@@ -306,6 +309,12 @@ function TaskRow({ task, onCheckboxClick, onRowClick, onSnooze, onPromote, onArc
             </button>
           ))}
         </div>
+      )}
+      {showQuickDelete && (
+        <button onClick={() => onDelete(task.id)}
+          className="text-gray-300 hover:text-red-500 transition-colors p-1 flex-shrink-0">
+          <Trash2 className="w-3.5 h-3.5" />
+        </button>
       )}
     </div>
   );
@@ -396,6 +405,7 @@ export default function Tasks() {
     onCheckboxClick: handleCheckboxClick,
     onRowClick:      setEditingTask,
     onSnooze:        snoozeTask,
+    onDelete:        deleteTask,
     onPromote:       handlePromote,
     onArchive:       handleArchive,
   };

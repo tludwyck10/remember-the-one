@@ -729,7 +729,7 @@ const SOURCE_LABEL = {
   life_event:     'From a life event',
 };
 
-function PersonTasksTab({ tasks, onAdd, onCheckboxClick, onRowClick, onSnooze, onPromote, onArchive }) {
+function PersonTasksTab({ tasks, onAdd, onCheckboxClick, onRowClick, onSnooze, onDelete, onPromote, onArchive }) {
   const open      = tasks.filter(t => !t.completed).sort((a, b) => new Date(a.dueAt || 0) - new Date(b.dueAt || 0));
   const completed = tasks.filter(t => t.completed);
 
@@ -808,9 +808,13 @@ function PersonTasksTab({ tasks, onAdd, onCheckboxClick, onRowClick, onSnooze, o
           <div className="pt-5">
             <p className="section-label mb-3">Completed</p>
             {completed.map(t => (
-              <div key={t.id} className="py-2 flex items-center gap-3">
+              <div key={t.id} className="py-2 flex items-center gap-3 group">
                 <Check className="w-3.5 h-3.5 text-[#2A9D8F] flex-shrink-0" />
-                <p className="text-xs text-gray-400 line-through">{t.label}</p>
+                <p className="text-xs text-gray-400 line-through flex-1">{t.label}</p>
+                <button onClick={() => onDelete(t.id)}
+                  className="text-gray-300 hover:text-red-500 transition-colors p-1 opacity-0 group-hover:opacity-100 flex-shrink-0">
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
               </div>
             ))}
           </div>
@@ -1013,6 +1017,7 @@ export default function PersonDetail() {
             onCheckboxClick={handlers.checkboxClick}
             onRowClick={setEditingTask}
             onSnooze={handlers.snoozeTask}
+            onDelete={deleteTask}
             onPromote={handlers.promote}
             onArchive={handlers.archive}
           />
