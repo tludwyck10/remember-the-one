@@ -5,11 +5,11 @@
 
 const DAY = 24 * 60 * 60 * 1000;
 
-export const CADENCE_TIERS = ['Inner Circle', 'Disciples', 'Active Relationships'];
+export const CADENCE_TIERS = ['Inner Circle', 'Discipling', 'Active Relationships'];
 
 export const TIER_INTERVAL_DAYS = {
   'Inner Circle':         3,
-  'Disciples':            7,
+  'Discipling':            7,
   'Active Relationships': 30,
 };
 

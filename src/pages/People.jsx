@@ -10,7 +10,7 @@ const circleFilters = ['All', ...CIRCLES];
 
 const circleDesc = {
   'Inner Circle':         `Closest disciples — deep, intentional relationship (max ${INNER_CIRCLE_CAP})`,
-  'Disciples':            'People being intentionally developed in their faith',
+  'Discipling':           'People being intentionally developed in their faith',
   'Active Relationships': 'Established relationships on a steady contact rhythm',
   'New Connections':      'Newly added — gets a 2-step follow-up sequence',
 };

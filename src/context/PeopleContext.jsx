@@ -4,7 +4,7 @@ import { useAuth } from './AuthContext';
 
 const PeopleContext = createContext(null);
 
-export const CIRCLES = ['Inner Circle', 'Disciples', 'Active Relationships', 'New Connections'];
+export const CIRCLES = ['Inner Circle', 'Discipling', 'Active Relationships', 'New Connections'];
 export const INNER_CIRCLE_CAP = 5;
 
 function dbToPerson(row) {

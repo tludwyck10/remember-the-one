@@ -5,8 +5,8 @@ import { usePeople, CIRCLES, INNER_CIRCLE_CAP } from '../context/PeopleContext';
 import { useTasks } from '../context/TasksContext';
 import { useAuth } from '../context/AuthContext';
 
-const CIRCLE_MAX = { 'Inner Circle': INNER_CIRCLE_CAP, 'Disciples': 12, 'Active Relationships': 20, 'New Connections': 10 };
-const CIRCLE_COLOR = { 'Inner Circle': 'bg-amber-400', 'Disciples': 'bg-[#2A9D8F]', 'Active Relationships': 'bg-blue-400', 'New Connections': 'bg-purple-400' };
+const CIRCLE_MAX = { 'Inner Circle': INNER_CIRCLE_CAP, 'Discipling': 12, 'Active Relationships': 20, 'New Connections': 10 };
+const CIRCLE_COLOR = { 'Inner Circle': 'bg-amber-400', 'Discipling': 'bg-[#2A9D8F]', 'Active Relationships': 'bg-blue-400', 'New Connections': 'bg-purple-400' };
 
 function bucketFor(task) {
   if (!task.dueAt) return null;
