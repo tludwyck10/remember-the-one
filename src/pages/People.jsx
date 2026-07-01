@@ -254,8 +254,8 @@ export default function People() {
               </div>
               <div className="hidden sm:block"><Badge label={person.circle} /></div>
               <div className="hidden sm:block">
-                <p className={`text-xs ${person.lastContactDays > 14 ? 'text-red-400' : 'text-gray-500'}`}>
-                  {person.lastContactDays === 0 ? 'Today' : `${person.lastContactDays}d ago`}
+                <p className={`text-xs ${person.lastContactDays === null || person.lastContactDays > 14 ? 'text-red-400' : 'text-gray-500'}`}>
+                  {person.lastContactDays === null ? 'Never' : person.lastContactDays === 0 ? 'Today' : `${person.lastContactDays}d ago`}
                 </p>
               </div>
               <div className="hidden sm:block">

@@ -386,7 +386,7 @@ function Overview({ person, upcomingTasks, onStageChange }) {
         <p className="section-label mb-3">Last Contact</p>
         <p className="text-sm text-black">{person.lastContact}</p>
         <p className="text-xs text-gray-400 mt-0.5">
-          {person.lastContactDays === 0 ? 'Today' : `${person.lastContactDays} days ago`}
+          {person.lastContactDays === null ? 'Never contacted' : person.lastContactDays === 0 ? 'Today' : `${person.lastContactDays} days ago`}
         </p>
       </div>
 

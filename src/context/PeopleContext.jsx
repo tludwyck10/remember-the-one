@@ -7,6 +7,11 @@ const PeopleContext = createContext(null);
 export const CIRCLES = ['Inner Circle', 'Discipling', 'Active Relationships', 'New Connections'];
 export const INNER_CIRCLE_CAP = 5;
 
+function daysSince(isoString) {
+  if (!isoString) return null;
+  return Math.max(0, Math.floor((Date.now() - new Date(isoString).getTime()) / 86400000));
+}
+
 function dbToPerson(row) {
   const prayers = (row.prayer_requests || []).map(p => ({
     id:         p.id,
@@ -26,7 +31,7 @@ function dbToPerson(row) {
     notes:           row.notes || '',
     cllStage:        row.cll_stage || 'Belong',
     lastContact:     row.last_contact || '',
-    lastContactDays: row.last_contact_days || 0,
+    lastContactDays: daysSince(row.last_contacted_at),
     lastContactedAt: row.last_contacted_at || null,
     birthday:        row.birthday || null,
     archived:        !!row.archived,

@@ -102,9 +102,11 @@ export default function TeamMember() {
                   <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                     <Badge label={person.circle} />
                     <span className="text-[10px] text-gray-400">
-                      {person.lastContactDays === 0
-                        ? 'Contacted today'
-                        : `${person.lastContactDays}d since contact`}
+                      {person.lastContactDays === null
+                        ? 'Never contacted'
+                        : person.lastContactDays === 0
+                          ? 'Contacted today'
+                          : `${person.lastContactDays}d since contact`}
                     </span>
                     {person.cllStage && (
                       <>
