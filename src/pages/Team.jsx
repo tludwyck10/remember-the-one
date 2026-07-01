@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Shield, Copy, Check, Users, Pencil, X, RefreshCw, Plus, MapPin, Trash2, Mail, Briefcase } from 'lucide-react';
+import { Shield, Copy, Check, Users, Pencil, X, RefreshCw, Plus, MapPin, Trash2, Mail, Briefcase, HandHeart } from 'lucide-react';
 import Avatar from '../components/Avatar';
 import { useAuth } from '../context/AuthContext';
 import { usePeople } from '../context/PeopleContext';
@@ -10,11 +10,13 @@ function EditChurchModal({ church, onSave, onClose }) {
   const [name, setName]         = useState(church?.name || '');
   const [joinCode, setJoinCode] = useState(church?.join_code || '');
   const [campuses, setCampuses] = useState(church?.campuses || []);
-  const [pastoralRoles, setPastoralRoles]   = useState(church?.pastoral_roles || ['Lead Pastor', 'Assistant Pastor', 'Worship Pastor']);
+  const [pastoralRoles, setPastoralRoles]     = useState(church?.pastoral_roles   || ['Lead Pastor', 'Assistant Pastor', 'Worship Pastor']);
   const [leadershipRoles, setLeadershipRoles] = useState(church?.leadership_roles || []);
-  const [newCampus, setNewCampus]           = useState('');
+  const [serveTeams, setServeTeams]           = useState(church?.serve_teams      || []);
+  const [newCampus, setNewCampus]             = useState('');
   const [newPastoralRole, setNewPastoralRole]     = useState('');
   const [newLeadershipRole, setNewLeadershipRole] = useState('');
+  const [newServeTeam, setNewServeTeam]           = useState('');
   const [error, setError]       = useState('');
   const [saving, setSaving]     = useState(false);
   const [codeCopied, setCodeCopied] = useState(false);
@@ -58,6 +60,15 @@ function EditChurchModal({ church, onSave, onClose }) {
     setError('');
   }
 
+  function addServeTeam() {
+    const trimmed = newServeTeam.trim();
+    if (!trimmed) return;
+    if (serveTeams.includes(trimmed)) { setError('That serve team already exists.'); return; }
+    setServeTeams(prev => [...prev, trimmed]);
+    setNewServeTeam('');
+    setError('');
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
     if (!name.trim()) { setError('Church name is required.'); return; }
@@ -68,6 +79,7 @@ function EditChurchModal({ church, onSave, onClose }) {
       campuses,
       pastoralRoles,
       leadershipRoles,
+      serveTeams,
     });
     if (err) { setError(err); setSaving(false); }
     else onClose();
@@ -77,6 +89,7 @@ function EditChurchModal({ church, onSave, onClose }) {
     const styles = {
       teal:   'bg-teal-50 text-teal-700 border-teal-100',
       purple: 'bg-purple-50 text-purple-700 border-purple-100',
+      orange: 'bg-orange-50 text-orange-700 border-orange-100',
     };
     return (
       <span className={`flex items-center gap-1.5 text-[11px] font-medium px-3 py-1 rounded-full border ${styles[color]}`}>
@@ -195,6 +208,34 @@ function EditChurchModal({ church, onSave, onClose }) {
               </button>
             </div>
             <p className="text-[10px] text-gray-400 mt-1.5">Shown as "Leadership Team" on the team page.</p>
+          </div>
+
+          {/* Serve Teams */}
+          <div>
+            <label className="section-label flex items-center gap-1 mb-3">
+              <HandHeart className="w-3 h-3" /> Serve Teams
+            </label>
+            {serveTeams.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-3">
+                {serveTeams.map(t => (
+                  <RoleChip key={t} label={t} onRemove={() => setServeTeams(prev => prev.filter(x => x !== t))} color="orange" />
+                ))}
+              </div>
+            )}
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={newServeTeam}
+                onChange={e => { setNewServeTeam(e.target.value); setError(''); }}
+                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addServeTeam(); } }}
+                placeholder="e.g. Worship, Kids, Hospitality..."
+                className="input-line flex-1"
+              />
+              <button type="button" onClick={addServeTeam} className="btn-secondary flex items-center gap-1 flex-shrink-0">
+                <Plus className="w-3.5 h-3.5" /> Add
+              </button>
+            </div>
+            <p className="text-[10px] text-gray-400 mt-1.5">People can be assigned to a serve team on their contact page.</p>
           </div>
 
           {/* Join code */}

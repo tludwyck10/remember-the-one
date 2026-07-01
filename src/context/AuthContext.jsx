@@ -132,6 +132,7 @@ export function AuthProvider({ children }) {
     if (data.campuses       !== undefined) updates.campuses        = data.campuses;
     if (data.pastoralRoles  !== undefined) updates.pastoral_roles  = data.pastoralRoles;
     if (data.leadershipRoles !== undefined) updates.leadership_roles = data.leadershipRoles;
+    if (data.serveTeams     !== undefined) updates.serve_teams     = data.serveTeams;
 
     const { error } = await supabase
       .from('churches')
@@ -159,7 +160,7 @@ export function AuthProvider({ children }) {
   async function lookupInvite(token) {
     const { data, error } = await supabase
       .from('church_invites')
-      .select('*, churches(id, name, campuses, pastoral_roles, leadership_roles)')
+      .select('*, churches(id, name, campuses, pastoral_roles, leadership_roles, serve_teams)')
       .eq('token', token)
       .eq('used', false)
       .maybeSingle();
@@ -194,7 +195,7 @@ export function AuthProvider({ children }) {
   async function lookupChurch(joinCode) {
     const { data, error } = await supabase
       .from('churches')
-      .select('id, name, campuses, pastoral_roles, leadership_roles')
+      .select('id, name, campuses, pastoral_roles, leadership_roles, serve_teams')
       .eq('join_code', joinCode.toUpperCase().trim())
       .maybeSingle();
     if (error || !data) return { error: 'Church not found. Double-check your join code.' };

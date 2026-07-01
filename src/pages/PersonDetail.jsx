@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Phone, Mail, MapPin, Plus, X, Check, Pencil, Trash2, ChevronLeft, Camera, Cake } from 'lucide-react';
+import { ArrowLeft, Phone, Mail, MapPin, Plus, X, Check, Pencil, Trash2, ChevronLeft, Camera, Cake, HandHeart, ChevronDown } from 'lucide-react';
 import Avatar from '../components/Avatar';
 import Badge from '../components/Badge';
 import { usePeople, CIRCLES, INNER_CIRCLE_CAP } from '../context/PeopleContext';
@@ -81,14 +81,17 @@ function Field({ label, children }) {
 
 // ─── Edit Contact modal ───────────────────────────────────────────────────────
 function EditContactModal({ person, innerCircleCount, onSave, onDelete, onClose }) {
+  const { church } = useAuth();
+  const serveTeams = church?.serve_teams || [];
   const [form, setForm] = useState({
-    name:   person.name,
-    circle: person.circle,
-    phone:    person.phone    || '',
-    email:    person.email    || '',
-    campus:   person.campus   || '',
-    birthday: person.birthday || '',
-    notes:    person.notes    || '',
+    name:      person.name,
+    circle:    person.circle,
+    phone:     person.phone     || '',
+    email:     person.email     || '',
+    campus:    person.campus    || '',
+    birthday:  person.birthday  || '',
+    serveTeam: person.serveTeam || '',
+    notes:     person.notes     || '',
   });
   const [error, setError] = useState('');
   const [confirming, setConfirming] = useState(false);
@@ -185,6 +188,21 @@ function EditContactModal({ person, innerCircleCount, onSave, onDelete, onClose 
               className="input-line" />
           </Field>
         </div>
+
+        <Field label="Serve Team">
+          {serveTeams.length > 0 ? (
+            <div className="relative">
+              <select value={form.serveTeam} onChange={e => set('serveTeam', e.target.value)}
+                className="input-line bg-transparent appearance-none pr-6 cursor-pointer">
+                <option value="">— None —</option>
+                {serveTeams.map(t => <option key={t}>{t}</option>)}
+              </select>
+              <ChevronDown className="absolute right-0 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+            </div>
+          ) : (
+            <p className="text-xs text-gray-400 italic">No serve teams set up yet. An admin can add them in Edit Church.</p>
+          )}
+        </Field>
 
         <Field label="Pastoral Notes">
           <textarea rows={3} value={form.notes} onChange={e => set('notes', e.target.value)}
@@ -1067,6 +1085,11 @@ export default function PersonDetail() {
               {person.birthday ? (
                 <span className="flex items-center gap-2 text-xs text-gray-500">
                   <Cake className="w-3.5 h-3.5" /> {formatBirthday(person.birthday)}
+                </span>
+              ) : null}
+              {person.serveTeam ? (
+                <span className="flex items-center gap-2 text-xs text-gray-500">
+                  <HandHeart className="w-3.5 h-3.5" /> {person.serveTeam}
                 </span>
               ) : null}
             </div>

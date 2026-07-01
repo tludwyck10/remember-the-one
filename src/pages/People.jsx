@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, Plus, X, Archive } from 'lucide-react';
+import { Search, Plus, X, Archive, ChevronDown } from 'lucide-react';
 import Avatar from '../components/Avatar';
 import Badge from '../components/Badge';
 import { usePeople, CIRCLES, INNER_CIRCLE_CAP } from '../context/PeopleContext';
@@ -15,7 +15,7 @@ const circleDesc = {
   'New Connections':      'Newly added — gets a 2-step follow-up sequence',
 };
 
-const EMPTY_FORM = { name: '', circle: 'New Connections', phone: '', email: '', birthday: '', notes: '' };
+const EMPTY_FORM = { name: '', circle: 'New Connections', phone: '', email: '', birthday: '', serveTeam: '', notes: '' };
 
 function Modal({ title, onClose, children }) {
   return (
@@ -35,6 +35,8 @@ function Modal({ title, onClose, children }) {
 }
 
 function AddPersonModal({ onClose, onSave, innerCircleCount }) {
+  const { church } = useAuth();
+  const serveTeams = church?.serve_teams || [];
   const [form, setForm] = useState(EMPTY_FORM);
   const [error, setError] = useState('');
   const innerCircleFull = innerCircleCount >= INNER_CIRCLE_CAP;
@@ -104,6 +106,20 @@ function AddPersonModal({ onClose, onSave, innerCircleCount }) {
           <input type="date" value={form.birthday}
             onChange={e => set('birthday', e.target.value)} className="input-line" />
         </div>
+
+        {serveTeams.length > 0 && (
+          <div>
+            <label className="section-label block mb-2">Serve Team <span className="text-gray-300">(optional)</span></label>
+            <div className="relative">
+              <select value={form.serveTeam} onChange={e => set('serveTeam', e.target.value)}
+                className="input-line bg-transparent appearance-none pr-6 cursor-pointer">
+                <option value="">— None —</option>
+                {serveTeams.map(t => <option key={t}>{t}</option>)}
+              </select>
+              <ChevronDown className="absolute right-0 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+            </div>
+          </div>
+        )}
 
         <div>
           <label className="section-label block mb-2">Pastoral Notes</label>
