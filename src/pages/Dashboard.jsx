@@ -60,10 +60,10 @@ export default function Dashboard() {
   const thisWeekCount = myTasks.filter(t => bucketFor(t) === 'This Week').length;
 
   const statConfig = [
-    { value: dueTodayCount, label: 'Due Today',      sub: 'People to reach out to', icon: ListChecks,    bg: 'bg-teal-50',  icon_cls: 'text-[#2A9D8F]', num_cls: 'text-[#2A9D8F]' },
-    { value: overdueCount,  label: 'Overdue',        sub: 'Need your attention',    icon: AlertTriangle, bg: 'bg-amber-50', icon_cls: 'text-amber-500', num_cls: 'text-amber-600' },
-    { value: thisWeekCount, label: 'Upcoming',       sub: 'Next 7 days',            icon: Calendar,      bg: 'bg-blue-50',  icon_cls: 'text-blue-500',  num_cls: 'text-blue-600'  },
-    { value: activePrayers, label: 'Active Prayers', sub: 'People being lifted up', icon: Heart,         bg: 'bg-rose-50',  icon_cls: 'text-rose-400',  num_cls: 'text-rose-500'  },
+    { value: dueTodayCount, label: 'Due Today',      sub: 'People to reach out to', icon: ListChecks,    bg: 'bg-teal-50',  icon_cls: 'text-[#2A9D8F]', num_cls: 'text-[#2A9D8F]', to: '/tasks'    },
+    { value: overdueCount,  label: 'Overdue',        sub: 'Need your attention',    icon: AlertTriangle, bg: 'bg-amber-50', icon_cls: 'text-amber-500', num_cls: 'text-amber-600', to: '/tasks'    },
+    { value: thisWeekCount, label: 'Upcoming',       sub: 'Next 7 days',            icon: Calendar,      bg: 'bg-blue-50',  icon_cls: 'text-blue-500',  num_cls: 'text-blue-600',  to: '/calendar' },
+    { value: activePrayers, label: 'Active Prayers', sub: 'People being lifted up', icon: Heart,         bg: 'bg-rose-50',  icon_cls: 'text-rose-400',  num_cls: 'text-rose-500',  to: '/prayer'   },
   ];
 
   return (
@@ -72,7 +72,7 @@ export default function Dashboard() {
       {/* Stat cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {statConfig.map(s => (
-          <div key={s.label} className="card p-5 flex items-center gap-4">
+          <Link key={s.label} to={s.to} className="card p-5 flex items-center gap-4 hover:shadow-md transition-all">
             <div className={`${s.bg} p-3 rounded-xl flex-shrink-0`}>
               <s.icon className={`w-5 h-5 ${s.icon_cls}`} />
             </div>
@@ -81,7 +81,7 @@ export default function Dashboard() {
               <p className="text-[10px] uppercase tracking-[0.14em] font-semibold text-gray-700 mt-0.5">{s.label}</p>
               <p className="text-[10px] text-gray-400">{s.sub}</p>
             </div>
-          </div>
+          </Link>
         ))}
       </div>
 
