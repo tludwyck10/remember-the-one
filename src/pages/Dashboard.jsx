@@ -4,29 +4,26 @@ import Avatar from '../components/Avatar';
 import { usePeople, CIRCLES, INNER_CIRCLE_CAP } from '../context/PeopleContext';
 import { useTasks } from '../context/TasksContext';
 import { useAuth } from '../context/AuthContext';
+import { diffDaysFromToday } from '../lib/dateUtils';
 
 const CIRCLE_MAX = { 'Inner Circle': INNER_CIRCLE_CAP, 'Discipling': 12, 'Active Relationships': 20, 'New Connections': 10 };
 const CIRCLE_COLOR = { 'Inner Circle': 'bg-amber-400', 'Discipling': 'bg-[#2A9D8F]', 'Active Relationships': 'bg-blue-400', 'New Connections': 'bg-purple-400' };
 
 function bucketFor(task) {
   if (!task.dueAt) return null;
-  const due = new Date(task.dueAt); due.setHours(0, 0, 0, 0);
-  const today = new Date(); today.setHours(0, 0, 0, 0);
-  const diffDays = Math.round((due - today) / 86400000);
-  if (diffDays < 0) return 'Overdue';
-  if (diffDays === 0) return 'Due Today';
-  if (diffDays <= 7) return 'This Week';
+  const diff = diffDaysFromToday(task.dueAt);
+  if (diff < 0) return 'Overdue';
+  if (diff === 0) return 'Due Today';
+  if (diff <= 7) return 'This Week';
   return 'Later';
 }
 
 function formatDue(dueAt) {
-  const due = new Date(dueAt); due.setHours(0, 0, 0, 0);
-  const today = new Date(); today.setHours(0, 0, 0, 0);
-  const diffDays = Math.round((due - today) / 86400000);
-  if (diffDays === 0)  return 'Due today';
-  if (diffDays === 1)  return 'Due tomorrow';
-  if (diffDays < 0)    return `Overdue ${Math.abs(diffDays)}d`;
-  return `Due in ${diffDays}d`;
+  const diff = diffDaysFromToday(dueAt);
+  if (diff === 0)  return 'Due today';
+  if (diff === 1)  return 'Due tomorrow';
+  if (diff < 0)    return `Overdue ${Math.abs(diff)}d`;
+  return `Due in ${diff}d`;
 }
 
 export default function Dashboard() {

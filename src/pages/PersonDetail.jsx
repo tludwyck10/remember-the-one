@@ -8,6 +8,7 @@ import { useTasks } from '../context/TasksContext';
 import { useAuth } from '../context/AuthContext';
 import { uploadPhoto } from '../lib/uploadPhoto';
 import { completeTaskWithLog } from '../lib/taskCompletion';
+import { diffDaysFromToday } from '../lib/dateUtils';
 
 const tabs = ['Overview', 'Conversations', 'Prayer Requests', 'Life Events', 'Tasks'];
 
@@ -19,13 +20,11 @@ function formatBirthday(birthday) {
 
 function formatDue(dueAt) {
   if (!dueAt) return null;
-  const due = new Date(dueAt);
-  const now = new Date();
-  const diffDays = Math.round((due.setHours(0,0,0,0) - new Date(now).setHours(0,0,0,0)) / 86400000);
-  if (diffDays === 0)  return { text: 'Due today',   overdue: false };
-  if (diffDays === 1)  return { text: 'Due tomorrow', overdue: false };
-  if (diffDays > 1)    return { text: `Due in ${diffDays}d`, overdue: false };
-  return { text: `Overdue ${Math.abs(diffDays)}d`, overdue: true };
+  const diff = diffDaysFromToday(dueAt);
+  if (diff === 0)  return { text: 'Due today',              overdue: false };
+  if (diff === 1)  return { text: 'Due tomorrow',           overdue: false };
+  if (diff > 1)    return { text: `Due in ${diff}d`,        overdue: false };
+  return           { text: `Overdue ${Math.abs(diff)}d`,    overdue: true  };
 }
 
 const CLL_STAGES = ['Belong', 'Become', 'Build', 'Beyond'];

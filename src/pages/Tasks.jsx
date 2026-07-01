@@ -5,6 +5,7 @@ import { useTasks } from '../context/TasksContext';
 import { usePeople } from '../context/PeopleContext';
 import { useAuth } from '../context/AuthContext';
 import { completeTaskWithLog } from '../lib/taskCompletion';
+import { diffDaysFromToday, localMidnight } from '../lib/dateUtils';
 
 const BUCKET_ORDER = ['Overdue', 'Due Today', 'This Week', 'Later', 'No Due Date'];
 
@@ -28,25 +29,21 @@ const CONTACT_METHODS = ['Text', 'Call', 'In Person', 'Other'];
 
 function bucketFor(task) {
   if (!task.dueAt) return 'No Due Date';
-  const due = new Date(task.dueAt); due.setHours(0, 0, 0, 0);
-  const today = new Date(); today.setHours(0, 0, 0, 0);
-  const diffDays = Math.round((due - today) / 86400000);
-  if (diffDays < 0) return 'Overdue';
-  if (diffDays === 0) return 'Due Today';
-  if (diffDays <= 7) return 'This Week';
+  const diff = diffDaysFromToday(task.dueAt);
+  if (diff < 0) return 'Overdue';
+  if (diff === 0) return 'Due Today';
+  if (diff <= 7) return 'This Week';
   return 'Later';
 }
 
 function formatDue(dueAt) {
   if (!dueAt) return '';
-  const due = new Date(dueAt); due.setHours(0, 0, 0, 0);
-  const today = new Date(); today.setHours(0, 0, 0, 0);
-  const diffDays = Math.round((due - today) / 86400000);
-  if (diffDays === 0)  return 'Today';
-  if (diffDays === 1)  return 'Tomorrow';
-  if (diffDays === -1) return 'Yesterday';
-  if (diffDays < 0)    return `${Math.abs(diffDays)}d overdue`;
-  return new Date(dueAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const diff = diffDaysFromToday(dueAt);
+  if (diff === 0)  return 'Today';
+  if (diff === 1)  return 'Tomorrow';
+  if (diff === -1) return 'Yesterday';
+  if (diff < 0)    return `${Math.abs(diff)}d overdue`;
+  return localMidnight(dueAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
 // ─── Modal ────────────────────────────────────────────────────────────────────
