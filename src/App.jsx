@@ -12,6 +12,7 @@ import Conversations from './pages/Conversations';
 import LifeEvents from './pages/LifeEvents';
 import Placeholder from './pages/Placeholder';
 import CLLPathway from './pages/CLLPathway';
+import CLLStage from './pages/CLLStage';
 import Profile from './pages/Profile';
 import CalendarPage from './pages/Calendar';
 import Team from './pages/Team';
@@ -50,6 +51,7 @@ function AppShell() {
             <Route path="/events"        element={<LifeEvents />} />
             <Route path="/calendar"      element={<CalendarPage />} />
             <Route path="/cll"           element={<CLLPathway />} />
+            <Route path="/cll/:stage"    element={<CLLStage />} />
             <Route path="/team"          element={<Team />} />
             <Route path="/team/:pastorId" element={<TeamMember />} />
             <Route path="/search"        element={<Placeholder title="Search" />} />

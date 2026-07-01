@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { ArrowRight, ArrowLeft } from 'lucide-react';
 import Avatar from '../components/Avatar';
 import { usePeople } from '../context/PeopleContext';
+import { useAuth } from '../context/AuthContext';
 
 const STAGES = ['Belong', 'Become', 'Build', 'Beyond'];
 
@@ -9,10 +10,7 @@ const STAGE_META = {
   Belong: {
     description: 'Everyone is welcome at Shoreline City. This is the entry point — the door is always open.',
     nextStage: 'Become',
-    nextLabel: 'Become',
-    steps: [
-      'Attend JOIN',
-    ],
+    steps: ['Attend JOIN'],
     color: 'bg-amber-50 border-amber-100',
     accent: 'text-amber-600',
     badge: 'bg-amber-100 text-amber-700',
@@ -20,12 +18,7 @@ const STAGE_META = {
   Become: {
     description: 'Taking the step of ownership at Shoreline City.',
     nextStage: 'Build',
-    nextLabel: 'Build',
-    steps: [
-      'Get baptized',
-      'Join a Connect Group',
-      'Join a serve team',
-    ],
+    steps: ['Get baptized', 'Join a Connect Group', 'Join a serve team'],
     color: 'bg-teal-50 border-teal-100',
     accent: 'text-teal-700',
     badge: 'bg-teal-100 text-teal-700',
@@ -33,12 +26,7 @@ const STAGE_META = {
   Build: {
     description: 'Going deeper — serving, giving, and stepping into leadership.',
     nextStage: 'Beyond',
-    nextLabel: 'Beyond',
-    steps: [
-      'Host a Connect Group',
-      'Take a step on the giving ladder',
-      'Join a leadership position on a serve team',
-    ],
+    steps: ['Host a Connect Group', 'Take a step on the giving ladder', 'Join a leadership position on a serve team'],
     color: 'bg-blue-50 border-blue-100',
     accent: 'text-blue-600',
     badge: 'bg-blue-100 text-blue-700',
@@ -46,7 +34,6 @@ const STAGE_META = {
   Beyond: {
     description: 'There is no end to what God can do in your life.',
     nextStage: null,
-    nextLabel: null,
     steps: [],
     color: 'bg-purple-50 border-purple-100',
     accent: 'text-purple-600',
@@ -54,15 +41,21 @@ const STAGE_META = {
   },
 };
 
+const PREVIEW_LIMIT = 5;
+
+export { STAGES, STAGE_META };
+
 export default function CLLPathway() {
   const { people, updatePerson } = usePeople();
+  const { userProfile } = useAuth();
+  const myPeople = people.filter(p => p.pastorId === userProfile?.id);
 
   function moveToStage(personId, stage) {
-    updatePerson(personId, p => ({ ...p, cllStage: stage }));
+    updatePerson(personId, { cllStage: stage });
   }
 
   const counts = STAGES.reduce((acc, s) => {
-    acc[s] = people.filter(p => (p.cllStage ?? 'Belong') === s).length;
+    acc[s] = myPeople.filter(p => (p.cllStage ?? 'Belong') === s).length;
     return acc;
   }, {});
 
@@ -75,15 +68,16 @@ export default function CLLPathway() {
         <p className="text-xs text-gray-400 mt-1">Christ-Like Leader Pathway · Four stages of spiritual growth</p>
       </div>
 
-      {/* Stage count cards */}
+      {/* Stage count cards — clicking goes to full stage view */}
       <div className="p-6 grid grid-cols-2 lg:grid-cols-4 gap-4">
         {STAGES.map(stage => {
           const meta = STAGE_META[stage];
           return (
-            <div key={stage} className={`card p-5 border ${meta.color}`}>
+            <Link key={stage} to={`/cll/${stage.toLowerCase()}`}
+              className={`card p-5 border ${meta.color} hover:shadow-md transition-all`}>
               <p className={`text-3xl font-light ${meta.accent}`}>{counts[stage]}</p>
               <p className="text-[10px] uppercase tracking-[0.14em] font-semibold text-gray-700 mt-1">{stage}</p>
-            </div>
+            </Link>
           );
         })}
       </div>
@@ -92,7 +86,9 @@ export default function CLLPathway() {
       <div className="px-6 pb-8 grid sm:grid-cols-2 xl:grid-cols-4 gap-4">
         {STAGES.map(stage => {
           const meta = STAGE_META[stage];
-          const stagepeople = people.filter(p => (p.cllStage ?? 'Belong') === stage);
+          const stagepeople = myPeople.filter(p => (p.cllStage ?? 'Belong') === stage);
+          const preview = stagepeople.slice(0, PREVIEW_LIMIT);
+          const hasMore = stagepeople.length > PREVIEW_LIMIT;
 
           return (
             <div key={stage} className="card overflow-hidden flex flex-col">
@@ -117,37 +113,34 @@ export default function CLLPathway() {
                 </div>
               )}
 
-              {/* People */}
+              {/* People preview */}
               <div className="flex-1 divide-y divide-gray-50">
                 {stagepeople.length === 0 && (
                   <div className="px-5 py-10 text-center">
                     <p className="text-[10px] uppercase tracking-[0.12em] text-gray-300">No one here yet</p>
                   </div>
                 )}
-                {stagepeople.map(person => (
+                {preview.map(person => (
                   <div key={person.id} className="px-5 py-4 hover:bg-gray-50 transition-colors">
                     <div className="flex items-center gap-3 mb-3">
                       <Avatar name={person.name} avatarUrl={person.avatarUrl} size="sm" />
                       <div className="flex-1 min-w-0">
                         <Link to={`/people/${person.id}`}
-                          className="text-sm font-medium text-gray-900 hover:text-[#2A9D8F] transition-colors leading-snug block">
+                          className="text-sm font-medium text-gray-900 hover:text-[#2A9D8F] transition-colors block truncate">
                           {person.name}
                         </Link>
                         <p className="text-[10px] text-gray-400">{person.circle}</p>
                       </div>
                     </div>
-                    {/* Stage actions */}
-                    <div className="flex items-center gap-2 flex-wrap">
+                    <div className="flex items-center gap-2">
                       {meta.nextStage && (
-                        <button
-                          onClick={() => moveToStage(person.id, meta.nextStage)}
+                        <button onClick={() => moveToStage(person.id, meta.nextStage)}
                           className="flex items-center gap-1 text-[10px] font-medium text-[#2A9D8F] hover:bg-teal-50 border border-teal-200 px-2.5 py-1 rounded-lg transition-colors">
-                          {meta.nextLabel} <ArrowRight className="w-2.5 h-2.5" />
+                          {meta.nextStage} <ArrowRight className="w-2.5 h-2.5" />
                         </button>
                       )}
                       {stage !== 'Belong' && (
-                        <button
-                          onClick={() => moveToStage(person.id, STAGES[STAGES.indexOf(stage) - 1])}
+                        <button onClick={() => moveToStage(person.id, STAGES[STAGES.indexOf(stage) - 1])}
                           className="flex items-center gap-1 text-[10px] text-gray-400 hover:text-gray-700 transition-colors">
                           <ArrowLeft className="w-2.5 h-2.5" /> Back
                         </button>
@@ -156,6 +149,16 @@ export default function CLLPathway() {
                   </div>
                 ))}
               </div>
+
+              {/* View all footer */}
+              {hasMore && (
+                <div className="border-t border-gray-100 px-5 py-3">
+                  <Link to={`/cll/${stage.toLowerCase()}`}
+                    className={`text-[11px] font-medium ${meta.accent} flex items-center gap-1 hover:underline`}>
+                    View all {stagepeople.length} <ArrowRight className="w-3 h-3" />
+                  </Link>
+                </div>
+              )}
             </div>
           );
         })}
