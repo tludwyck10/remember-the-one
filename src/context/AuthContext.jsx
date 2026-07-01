@@ -86,9 +86,11 @@ export function AuthProvider({ children }) {
       .single();
     if (churchErr) return { error: churchErr.message };
 
+    // Separate position (custom title) from profileData; role is always 'admin' for the founder
+    const { role: _ignore, position, ...rest } = profileData;
     const { error: profileErr } = await supabase
       .from('user_profiles')
-      .insert({ id: s.user.id, church_id: newChurch.id, role: 'admin', email: s.user.email, ...profileData });
+      .insert({ id: s.user.id, church_id: newChurch.id, role: 'admin', position: position || '', email: s.user.email, ...rest });
 
     if (profileErr) {
       await supabase.from('churches').delete().eq('id', newChurch.id);
@@ -110,9 +112,10 @@ export function AuthProvider({ children }) {
       .maybeSingle();
     if (!found) return { error: 'Church not found. Double-check your join code.' };
 
+    const { role: _ignore, position, ...rest } = profileData;
     const { error: profileErr } = await supabase
       .from('user_profiles')
-      .insert({ id: s.user.id, church_id: found.id, role: 'pastor', email: s.user.email, ...profileData });
+      .insert({ id: s.user.id, church_id: found.id, role: 'pastor', position: position || '', email: s.user.email, ...rest });
     if (profileErr) return { error: profileErr.message };
 
     await fetchProfile(s.user.id);
@@ -124,9 +127,11 @@ export function AuthProvider({ children }) {
     if (!church?.id) return { error: 'No church found' };
 
     const updates = {};
-    if (data.name     !== undefined) updates.name      = data.name;
-    if (data.joinCode !== undefined) updates.join_code = data.joinCode;
-    if (data.campuses !== undefined) updates.campuses  = data.campuses;
+    if (data.name           !== undefined) updates.name            = data.name;
+    if (data.joinCode       !== undefined) updates.join_code       = data.joinCode;
+    if (data.campuses       !== undefined) updates.campuses        = data.campuses;
+    if (data.pastoralRoles  !== undefined) updates.pastoral_roles  = data.pastoralRoles;
+    if (data.leadershipRoles !== undefined) updates.leadership_roles = data.leadershipRoles;
 
     const { error } = await supabase
       .from('churches')
@@ -136,7 +141,7 @@ export function AuthProvider({ children }) {
     if (error) return { error: error.message };
 
     setChurch(prev => ({ ...prev, ...updates }));
-    return {};
+    return { error: null };
   }
 
   // ── Invites ───────────────────────────────────────────────────
@@ -154,7 +159,7 @@ export function AuthProvider({ children }) {
   async function lookupInvite(token) {
     const { data, error } = await supabase
       .from('church_invites')
-      .select('*, churches(id, name, campuses)')
+      .select('*, churches(id, name, campuses, pastoral_roles, leadership_roles)')
       .eq('token', token)
       .eq('used', false)
       .maybeSingle();
@@ -174,9 +179,10 @@ export function AuthProvider({ children }) {
       .maybeSingle();
     if (!invite) return { error: 'Invite not found or already used.' };
 
+    const { role: _ignore, position, ...rest } = profileData;
     const { error: profileErr } = await supabase
       .from('user_profiles')
-      .insert({ id: s.user.id, church_id: invite.church_id, role: 'pastor', email: s.user.email, ...profileData });
+      .insert({ id: s.user.id, church_id: invite.church_id, role: 'pastor', position: position || '', email: s.user.email, ...rest });
     if (profileErr) return { error: profileErr.message };
 
     await supabase.from('church_invites').update({ used: true }).eq('token', token);
@@ -188,7 +194,7 @@ export function AuthProvider({ children }) {
   async function lookupChurch(joinCode) {
     const { data, error } = await supabase
       .from('churches')
-      .select('id, name, campuses')
+      .select('id, name, campuses, pastoral_roles, leadership_roles')
       .eq('join_code', joinCode.toUpperCase().trim())
       .maybeSingle();
     if (error || !data) return { error: 'Church not found. Double-check your join code.' };
@@ -204,7 +210,7 @@ export function AuthProvider({ children }) {
     if (data.firstName !== undefined) updates.first_name = data.firstName;
     if (data.lastName  !== undefined) updates.last_name  = data.lastName;
     if (data.title     !== undefined) updates.title      = data.title;
-    if (data.role      !== undefined) updates.role       = data.role;
+    if (data.position  !== undefined) updates.position   = data.position;
     if (data.campus    !== undefined) updates.campus     = data.campus;
     if (data.phone     !== undefined) updates.phone      = data.phone;
     if (data.email     !== undefined) updates.email      = data.email;

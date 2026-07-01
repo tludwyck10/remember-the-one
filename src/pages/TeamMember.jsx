@@ -52,7 +52,9 @@ export default function TeamMember() {
                 </span>
               )}
             </div>
-            <p className="text-xs text-gray-400 uppercase tracking-[0.12em] mt-1">{member.role}</p>
+            <p className="text-xs text-gray-400 uppercase tracking-[0.12em] mt-1">
+              {member.position || (member.role === 'admin' ? 'Administrator' : member.role)}
+            </p>
 
             <div className="flex items-center gap-4 mt-2.5 flex-wrap">
               {member.campus && (

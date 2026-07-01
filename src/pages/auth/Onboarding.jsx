@@ -2,32 +2,14 @@ import { useState, useEffect } from 'react';
 import { Church, Users, ArrowRight, MapPin, ChevronDown, Check } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
-const ROLES = [
-  'Lead Pastor',
-  'Assistant Pastor',
-  'Worship Pastor',
-];
+const DEFAULT_PASTORAL_ROLES = ['Lead Pastor', 'Assistant Pastor', 'Worship Pastor'];
 
-function SelectField({ label, value, onChange, options, icon: Icon }) {
-  return (
-    <div>
-      <label className="section-label flex items-center gap-1 mb-2">
-        {Icon && <Icon className="w-3 h-3" />} {label}
-      </label>
-      <div className="relative">
-        <select value={value} onChange={e => onChange(e.target.value)}
-          className="input-line bg-transparent appearance-none pr-6 w-full cursor-pointer">
-          {options.map(o => <option key={o}>{o}</option>)}
-        </select>
-        <ChevronDown className="absolute right-0 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
-      </div>
-    </div>
-  );
-}
-
-function ProfileFields({ profile, onChange, campuses }) {
+function ProfileFields({ profile, onChange, campuses, pastoralRoles, leadershipRoles }) {
   function set(field) { return e => onChange(field, e.target.value); }
 
+  const pRoles = pastoralRoles?.length > 0 ? pastoralRoles : DEFAULT_PASTORAL_ROLES;
+  const lRoles = leadershipRoles?.length > 0 ? leadershipRoles : [];
+  const showGroups = lRoles.length > 0;
   const campusOptions = campuses && campuses.length > 0 ? campuses : null;
 
   return (
@@ -50,10 +32,40 @@ function ProfileFields({ profile, onChange, campuses }) {
         </div>
       </div>
       <div className="grid grid-cols-2 gap-3">
-        <SelectField label="Role" value={profile.role} onChange={v => onChange('role', v)} options={ROLES} />
+        <div>
+          <label className="section-label block mb-2">Role</label>
+          <div className="relative">
+            <select value={profile.position} onChange={e => onChange('position', e.target.value)}
+              className="input-line bg-transparent appearance-none pr-6 w-full cursor-pointer">
+              {showGroups ? (
+                <>
+                  <optgroup label="Pastoral Team">
+                    {pRoles.map(r => <option key={r}>{r}</option>)}
+                  </optgroup>
+                  <optgroup label="Leadership Team">
+                    {lRoles.map(r => <option key={r}>{r}</option>)}
+                  </optgroup>
+                </>
+              ) : (
+                pRoles.map(r => <option key={r}>{r}</option>)
+              )}
+            </select>
+            <ChevronDown className="absolute right-0 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+          </div>
+        </div>
         {campusOptions ? (
-          <SelectField label="Campus" value={profile.campus} onChange={v => onChange('campus', v)}
-            options={campusOptions} icon={MapPin} />
+          <div>
+            <label className="section-label flex items-center gap-1 mb-2">
+              <MapPin className="w-3 h-3" /> Campus
+            </label>
+            <div className="relative">
+              <select value={profile.campus} onChange={e => onChange('campus', e.target.value)}
+                className="input-line bg-transparent appearance-none pr-6 w-full cursor-pointer">
+                {campusOptions.map(o => <option key={o}>{o}</option>)}
+              </select>
+              <ChevronDown className="absolute right-0 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+            </div>
+          </div>
         ) : (
           <div>
             <label className="section-label flex items-center gap-1 mb-2">
@@ -75,7 +87,7 @@ export default function Onboarding() {
   const [loading, setLoading] = useState(false);
 
   const [profile, setProfile] = useState({
-    first_name: '', last_name: '', title: 'Pastor', role: 'Lead Pastor', campus: '',
+    first_name: '', last_name: '', title: 'Pastor', position: 'Lead Pastor', campus: '',
   });
   const [churchName, setChurchName] = useState('');
 
@@ -108,6 +120,8 @@ export default function Onboarding() {
       const church = invite.churches;
       setInviteChurch(church);
       if (church.campuses?.length > 0) setP('campus', church.campuses[0]);
+      const firstRole = church.pastoral_roles?.[0] || church.leadership_roles?.[0];
+      if (firstRole) setP('position', firstRole);
       setStep('invited');
     });
   }, []);
@@ -150,9 +164,9 @@ export default function Onboarding() {
       if (err) { setError(err); return; }
       setFoundChurch(found);
       // Pre-select first campus if available
-      if (found.campuses?.length > 0) {
-        setP('campus', found.campuses[0]);
-      }
+      if (found.campuses?.length > 0) setP('campus', found.campuses[0]);
+      const firstRole = found.pastoral_roles?.[0] || found.leadership_roles?.[0];
+      if (firstRole) setP('position', firstRole);
     }
   }
 
@@ -271,7 +285,8 @@ export default function Onboarding() {
 
             <div>
               <p className="section-label mb-3">Your Info</p>
-              <ProfileFields profile={profile} onChange={setP} campuses={campusList} />
+              <ProfileFields profile={profile} onChange={setP} campuses={campusList}
+                pastoralRoles={DEFAULT_PASTORAL_ROLES} leadershipRoles={[]} />
             </div>
 
             {error && (
@@ -328,6 +343,8 @@ export default function Onboarding() {
                   profile={profile}
                   onChange={setP}
                   campuses={foundChurch.campuses}
+                  pastoralRoles={foundChurch.pastoral_roles}
+                  leadershipRoles={foundChurch.leadership_roles}
                 />
               </div>
             )}
@@ -367,7 +384,9 @@ export default function Onboarding() {
             </div>
             <div>
               <p className="section-label mb-3">Your Info</p>
-              <ProfileFields profile={profile} onChange={setP} campuses={inviteChurch.campuses} />
+              <ProfileFields profile={profile} onChange={setP} campuses={inviteChurch.campuses}
+                pastoralRoles={inviteChurch.pastoral_roles}
+                leadershipRoles={inviteChurch.leadership_roles} />
             </div>
             {error && (
               <div className="bg-red-50 border border-red-100 rounded-xl px-4 py-3">

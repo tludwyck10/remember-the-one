@@ -5,11 +5,7 @@ import { useProfile } from '../context/ProfileContext';
 import { useAuth } from '../context/AuthContext';
 import { uploadPhoto } from '../lib/uploadPhoto';
 
-const ROLES = [
-  'Lead Pastor',
-  'Assistant Pastor',
-  'Worship Pastor',
-];
+const DEFAULT_PASTORAL_ROLES = ['Lead Pastor', 'Assistant Pastor', 'Worship Pastor'];
 
 function Field({ label, icon: Icon, children }) {
   return (
@@ -27,6 +23,10 @@ export default function Profile() {
   const { profile, updateProfile } = useProfile();
   const { signOut, church, session, updateUserProfile } = useAuth();
   const campuses = church?.campuses || [];
+  const pastoralRoles = church?.pastoral_roles?.length > 0 ? church.pastoral_roles : DEFAULT_PASTORAL_ROLES;
+  const leadershipRoles = church?.leadership_roles || [];
+  const allRoles = [...pastoralRoles, ...leadershipRoles];
+  const showRoleGroups = leadershipRoles.length > 0;
   const [form, setForm]         = useState({ ...profile });
   const [photoUploading, setPhotoUploading] = useState(false);
   const [photoError, setPhotoError]         = useState('');
@@ -95,7 +95,7 @@ export default function Profile() {
           </label>
           <div>
             <p className="text-white text-lg font-light">{displayName || 'Your Name'}</p>
-            <p className="text-white/60 text-[11px] uppercase tracking-[0.14em] mt-0.5">{form.role || 'Role'}</p>
+            <p className="text-white/60 text-[11px] uppercase tracking-[0.14em] mt-0.5">{form.position || 'Role'}</p>
             <div className="flex items-center gap-1.5 mt-2">
               <MapPin className="w-3 h-3 text-white/50" />
               <p className="text-white/60 text-xs">{form.campus ? `${form.campus} Campus` : 'Campus'}</p>
@@ -158,10 +158,21 @@ export default function Profile() {
               <Field label="Role">
                 <div className="relative">
                   <select
-                    value={form.role}
-                    onChange={e => set('role', e.target.value)}
+                    value={form.position}
+                    onChange={e => set('position', e.target.value)}
                     className="input-line bg-transparent appearance-none pr-6 cursor-pointer">
-                    {ROLES.map(r => <option key={r}>{r}</option>)}
+                    {showRoleGroups ? (
+                      <>
+                        <optgroup label="Pastoral Team">
+                          {pastoralRoles.map(r => <option key={r}>{r}</option>)}
+                        </optgroup>
+                        <optgroup label="Leadership Team">
+                          {leadershipRoles.map(r => <option key={r}>{r}</option>)}
+                        </optgroup>
+                      </>
+                    ) : (
+                      allRoles.map(r => <option key={r}>{r}</option>)
+                    )}
                   </select>
                   <ChevronDown className="absolute right-0 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
                 </div>

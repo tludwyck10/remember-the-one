@@ -14,6 +14,7 @@ export function useProfile() {
     lastName:  userProfile?.last_name  || '',
     title:     userProfile?.title      || '',
     role:      userProfile?.role       || '',
+    position:  userProfile?.position   || '',
     campus:    userProfile?.campus     || '',
     phone:     userProfile?.phone      || '',
     email:     userProfile?.email      || '',
