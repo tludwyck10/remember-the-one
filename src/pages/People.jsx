@@ -241,8 +241,8 @@ export default function People() {
         {filtered.map(person => {
           const pastorName = getPastorName(person.pastorId);
           return (
-            <div key={person.id}
-              className="card grid grid-cols-[1fr_160px_120px_80px_60px] gap-4 items-center px-5 py-4 hover:shadow-md transition-all group cursor-pointer">
+            <Link key={person.id} to={`/people/${person.id}`}
+              className="card grid grid-cols-[1fr_160px_120px_80px_60px] gap-4 items-center px-5 py-4 hover:shadow-md transition-all group">
               <div className="flex items-center gap-4 min-w-0">
                 <Avatar name={person.name} avatarUrl={person.avatarUrl} size="md" />
                 <div className="min-w-0">
@@ -262,12 +262,11 @@ export default function People() {
                 <p className="text-xs text-gray-500">{person.prayerCount}</p>
               </div>
               <div>
-                <Link to={`/people/${person.id}`}
-                  className="text-[10px] font-medium text-[#2A9D8F] opacity-0 group-hover:opacity-100 transition-opacity">
+                <span className="text-[10px] font-medium text-[#2A9D8F] opacity-0 group-hover:opacity-100 transition-opacity">
                   Open →
-                </Link>
+                </span>
               </div>
-            </div>
+            </Link>
           );
         })}
       </div>
