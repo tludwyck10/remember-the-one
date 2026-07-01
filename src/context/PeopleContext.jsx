@@ -14,11 +14,12 @@ function daysSince(isoString) {
 
 function dbToPerson(row) {
   const prayers = (row.prayer_requests || []).map(p => ({
-    id:         p.id,
-    request:    p.request,
-    dateAdded:  p.date_added,
-    status:     p.status,
-    daysActive: p.days_active,
+    id:            p.id,
+    request:       p.request,
+    dateAdded:     p.date_added,
+    status:        p.status,
+    daysActive:    p.days_active,
+    scheduledDate: p.scheduled_date || '',
   }));
 
   return {
@@ -221,13 +222,14 @@ export function PeopleProvider({ children }) {
 
     const person = people.find(p => p.id === personId);
     const { error } = await supabase.from('prayer_requests').insert({
-      id:          pr.id,
-      person_id:   personId,
-      person_name: person?.name || '',
-      request:     pr.request,
-      date_added:  pr.dateAdded,
-      status:      pr.status,
-      days_active: pr.daysActive,
+      id:             pr.id,
+      person_id:      personId,
+      person_name:    person?.name || '',
+      request:        pr.request,
+      date_added:     pr.dateAdded,
+      status:         pr.status,
+      days_active:    pr.daysActive,
+      scheduled_date: pr.scheduledDate || null,
     });
     if (error) console.error('Prayer insert error:', error);
   }
@@ -249,8 +251,9 @@ export function PeopleProvider({ children }) {
     });
 
     const dbChanges = {};
-    if (changes.request !== undefined) dbChanges.request = changes.request;
-    if (changes.status  !== undefined) dbChanges.status  = changes.status;
+    if (changes.request       !== undefined) dbChanges.request        = changes.request;
+    if (changes.status        !== undefined) dbChanges.status         = changes.status;
+    if (changes.scheduledDate !== undefined) dbChanges.scheduled_date = changes.scheduledDate || null;
 
     if (Object.keys(dbChanges).length === 0) return;
     const { error } = await supabase.from('prayer_requests')

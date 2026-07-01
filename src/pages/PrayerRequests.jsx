@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, Check, X, Trash2 } from 'lucide-react';
+import { Plus, Check, X, Trash2, Repeat, Calendar } from 'lucide-react';
 import Avatar from '../components/Avatar';
 import { usePeople } from '../context/PeopleContext';
 import { useAuth } from '../context/AuthContext';
@@ -35,9 +35,10 @@ function Modal({ title, onClose, children }) {
 // ─── Add Prayer Modal ─────────────────────────────────────────────────────────
 function AddPrayerModal({ people, onSave, onClose }) {
   const [form, setForm] = useState({
-    personId: people[0]?.id || '',
-    request:  '',
-    status:   'Active',
+    personId:      people[0]?.id || '',
+    request:       '',
+    status:        'Active',
+    scheduledDate: '',
   });
   const [error, setError] = useState('');
 
@@ -92,6 +93,17 @@ function AddPrayerModal({ people, onSave, onClose }) {
           </div>
         </div>
 
+        <div>
+          <label className="section-label block mb-2">Schedule for a day (optional)</label>
+          <input
+            type="date"
+            value={form.scheduledDate}
+            onChange={e => setForm(f => ({ ...f, scheduledDate: e.target.value }))}
+            className="input-line"
+          />
+          <p className="text-[10px] text-gray-400 mt-1">It'll appear in Today's Prayer Topics on that day.</p>
+        </div>
+
         <div className="flex gap-3 pt-1">
           <button type="button" onClick={onClose} className="btn-secondary flex-1">Cancel</button>
           <button type="submit" className="btn-primary flex-1">Add Request</button>
@@ -103,7 +115,7 @@ function AddPrayerModal({ people, onSave, onClose }) {
 
 // ─── Edit Prayer Request Modal ────────────────────────────────────────────────
 function EditPrayerModal({ prayer, onSave, onDelete, onClose }) {
-  const [form, setForm] = useState({ request: prayer.request, status: prayer.status });
+  const [form, setForm] = useState({ request: prayer.request, status: prayer.status, scheduledDate: prayer.scheduledDate || '' });
   const [error, setError] = useState('');
   const [confirming, setConfirming] = useState(false);
 
@@ -160,8 +172,19 @@ function EditPrayerModal({ prayer, onSave, onDelete, onClose }) {
             ))}
           </div>
           {form.status === 'Ongoing' && (
-            <p className="text-[10px] text-gray-400 mt-2">You'll get a daily reminder to keep praying for this until it's marked Answered.</p>
+            <p className="text-[10px] text-gray-400 mt-2">This will appear in Today's Prayer Topics every day until it's marked Answered.</p>
           )}
+        </div>
+
+        <div>
+          <label className="section-label block mb-2">Schedule for a day (optional)</label>
+          <input
+            type="date"
+            value={form.scheduledDate}
+            onChange={e => setForm(f => ({ ...f, scheduledDate: e.target.value }))}
+            className="input-line"
+          />
+          <p className="text-[10px] text-gray-400 mt-1">It'll appear in Today's Prayer Topics on that day.</p>
         </div>
 
         <div className="flex gap-3 pt-1">
@@ -177,6 +200,43 @@ function EditPrayerModal({ prayer, onSave, onDelete, onClose }) {
         </div>
       </form>
     </Modal>
+  );
+}
+
+// ─── Prayer Card row ────────────────────────────────────────────────────────
+function PrayerCard({ pr, onOpen, onMarkAnswered, onUndo }) {
+  return (
+    <div className="card px-5 py-4 flex items-start gap-4 hover:shadow-md transition-all">
+      <Avatar name={pr.personName} avatarUrl={pr.personAvatarUrl} size="md" />
+      <div className="flex-1 min-w-0 cursor-pointer" onClick={onOpen}>
+        <div className="flex items-center justify-between gap-3 mb-1">
+          <Link to={`/people/${pr.personId}`} onClick={e => e.stopPropagation()}
+            className="text-sm font-medium text-gray-900 hover:text-[#2A9D8F] transition-colors">
+            {pr.personName}
+          </Link>
+          <span className={`text-[10px] font-medium px-2.5 py-0.5 rounded-full uppercase tracking-[0.08em] flex-shrink-0 ${statusColors[pr.status] || statusColors.Active}`}>
+            {pr.status}
+          </span>
+        </div>
+        <p className="text-xs text-gray-600 leading-relaxed">{pr.request}</p>
+        <div className="flex items-center gap-3 mt-2">
+          <p className="text-[10px] text-gray-400">{pr.dateAdded}</p>
+          <span className="text-gray-300">·</span>
+          <p className="text-[10px] text-gray-400">{pr.daysActive}d active</p>
+          {pr.status !== 'Answered' ? (
+            <button onClick={(e) => { e.stopPropagation(); onMarkAnswered(); }}
+              className="ml-auto flex items-center gap-1 text-[10px] font-medium text-[#2A9D8F] hover:bg-teal-50 px-2.5 py-1 rounded-lg transition-colors">
+              <Check className="w-3 h-3" /> Mark Answered
+            </button>
+          ) : (
+            <button onClick={(e) => { e.stopPropagation(); onUndo(); }}
+              className="ml-auto flex items-center gap-1 text-[10px] font-medium text-gray-500 hover:bg-gray-100 px-2.5 py-1 rounded-lg transition-colors">
+              Undo
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -203,7 +263,17 @@ export default function PrayerRequests() {
     Answered: prayers.filter(p => p.status === 'Answered').length,
   };
 
-  function handleSave({ personId, request, status }) {
+  const todayStr = new Date().toISOString().split('T')[0];
+  const ongoingTopics = prayers.filter(p => p.status === 'Ongoing');
+  const scheduledTodayTopics = prayers.filter(
+    p => p.scheduledDate === todayStr && p.status !== 'Answered' && p.status !== 'Ongoing'
+  );
+
+  function openPrayer(pr) { setEditingPrayer(pr); }
+  function markAnswered(pr) { markPrayerAnswered(pr.personId, pr.id); }
+  function undoAnswered(pr) { updatePrayerRequest(pr.personId, pr.id, { status: 'Active' }); }
+
+  function handleSave({ personId, request, status, scheduledDate }) {
     const today = new Date().toISOString().split('T')[0];
     const pr = {
       id:        `pr${Date.now()}`,
@@ -211,6 +281,7 @@ export default function PrayerRequests() {
       dateAdded: today,
       status,
       daysActive: 0,
+      scheduledDate: scheduledDate || '',
     };
     addPrayerRequest(personId, pr);
     setShowModal(false);
@@ -262,6 +333,56 @@ export default function PrayerRequests() {
         </div>
       </div>
 
+      {/* Today's Prayer Topics */}
+      <div className="px-6 pb-6">
+        <p className="section-label mb-3">Today's Prayer Topics</p>
+        {ongoingTopics.length === 0 && scheduledTodayTopics.length === 0 ? (
+          <div className="card py-10 text-center">
+            <p className="text-[11px] uppercase tracking-[0.14em] text-gray-400">
+              Nothing scheduled for today
+            </p>
+            <p className="text-xs text-gray-400 mt-2">Ongoing prayers and topics scheduled for today will show up here.</p>
+          </div>
+        ) : (
+          <div className="space-y-5">
+            {ongoingTopics.length > 0 && (
+              <div>
+                <div className="flex items-center gap-1.5 mb-2">
+                  <Repeat className="w-3 h-3 text-blue-500" />
+                  <p className="text-[10px] uppercase tracking-[0.14em] font-medium text-gray-500">Ongoing</p>
+                </div>
+                <div className="space-y-3">
+                  {ongoingTopics.map(pr => (
+                    <PrayerCard key={pr.id} pr={pr}
+                      onOpen={() => openPrayer(pr)}
+                      onMarkAnswered={() => markAnswered(pr)}
+                      onUndo={() => undoAnswered(pr)}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+            {scheduledTodayTopics.length > 0 && (
+              <div>
+                <div className="flex items-center gap-1.5 mb-2">
+                  <Calendar className="w-3 h-3 text-[#2A9D8F]" />
+                  <p className="text-[10px] uppercase tracking-[0.14em] font-medium text-gray-500">Scheduled Today</p>
+                </div>
+                <div className="space-y-3">
+                  {scheduledTodayTopics.map(pr => (
+                    <PrayerCard key={pr.id} pr={pr}
+                      onOpen={() => openPrayer(pr)}
+                      onMarkAnswered={() => markAnswered(pr)}
+                      onUndo={() => undoAnswered(pr)}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* Filter tabs */}
       <div className="bg-white border-b border-gray-100 px-8">
         <div className="flex gap-1 py-2">
@@ -287,37 +408,11 @@ export default function PrayerRequests() {
         )}
 
         {filtered.map(pr => (
-          <div key={pr.id} className="card px-5 py-4 flex items-start gap-4 hover:shadow-md transition-all">
-            <Avatar name={pr.personName} avatarUrl={pr.personAvatarUrl} size="md" />
-            <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setEditingPrayer(pr)}>
-              <div className="flex items-center justify-between gap-3 mb-1">
-                <Link to={`/people/${pr.personId}`} onClick={e => e.stopPropagation()}
-                  className="text-sm font-medium text-gray-900 hover:text-[#2A9D8F] transition-colors">
-                  {pr.personName}
-                </Link>
-                <span className={`text-[10px] font-medium px-2.5 py-0.5 rounded-full uppercase tracking-[0.08em] flex-shrink-0 ${statusColors[pr.status] || statusColors.Active}`}>
-                  {pr.status}
-                </span>
-              </div>
-              <p className="text-xs text-gray-600 leading-relaxed">{pr.request}</p>
-              <div className="flex items-center gap-3 mt-2">
-                <p className="text-[10px] text-gray-400">{pr.dateAdded}</p>
-                <span className="text-gray-300">·</span>
-                <p className="text-[10px] text-gray-400">{pr.daysActive}d active</p>
-                {pr.status !== 'Answered' ? (
-                  <button onClick={(e) => { e.stopPropagation(); markPrayerAnswered(pr.personId, pr.id); }}
-                    className="ml-auto flex items-center gap-1 text-[10px] font-medium text-[#2A9D8F] hover:bg-teal-50 px-2.5 py-1 rounded-lg transition-colors">
-                    <Check className="w-3 h-3" /> Mark Answered
-                  </button>
-                ) : (
-                  <button onClick={(e) => { e.stopPropagation(); updatePrayerRequest(pr.personId, pr.id, { status: 'Active' }); }}
-                    className="ml-auto flex items-center gap-1 text-[10px] font-medium text-gray-500 hover:bg-gray-100 px-2.5 py-1 rounded-lg transition-colors">
-                    Undo
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
+          <PrayerCard key={pr.id} pr={pr}
+            onOpen={() => openPrayer(pr)}
+            onMarkAnswered={() => markAnswered(pr)}
+            onUndo={() => undoAnswered(pr)}
+          />
         ))}
       </div>
 

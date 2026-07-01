@@ -264,13 +264,14 @@ function LogConversationModal({ onSave, onClose }) {
 // ─── Add Prayer modal ─────────────────────────────────────────────────────────
 function AddPrayerModal({ onSave, onClose }) {
   const [request, setRequest] = useState('');
+  const [scheduledDate, setScheduledDate] = useState('');
   const [error, setError] = useState('');
 
   function handleSubmit(e) {
     e.preventDefault();
     if (!request.trim()) { setError('Describe the prayer request.'); return; }
     const today = new Date().toISOString().split('T')[0];
-    onSave({ id: `pr${Date.now()}`, request: request.trim(), dateAdded: today, status: 'Active', daysActive: 0 });
+    onSave({ id: `pr${Date.now()}`, request: request.trim(), dateAdded: today, status: 'Active', daysActive: 0, scheduledDate });
   }
 
   return (
@@ -282,6 +283,11 @@ function AddPrayerModal({ onSave, onClose }) {
             onChange={e => { setRequest(e.target.value); setError(''); }}
             className="input-line resize-none" />
           {error && <p className="text-[11px] text-red-500 mt-1">{error}</p>}
+        </Field>
+        <Field label="Schedule for a day (optional)">
+          <input type="date" value={scheduledDate} onChange={e => setScheduledDate(e.target.value)}
+            className="input-line" />
+          <p className="text-[10px] text-gray-400 mt-1">It'll appear in Today's Prayer Topics on that day.</p>
         </Field>
         <div className="flex gap-3">
           <button type="button" onClick={onClose} className="btn-secondary flex-1">Cancel</button>
@@ -495,7 +501,7 @@ function Conversations({ person, onAdd }) {
 const PRAYER_STATUSES = ['Active', 'Ongoing', 'Answered'];
 
 function EditPrayerModal({ prayer, onSave, onDelete, onClose }) {
-  const [form, setForm] = useState({ request: prayer.request, status: prayer.status });
+  const [form, setForm] = useState({ request: prayer.request, status: prayer.status, scheduledDate: prayer.scheduledDate || '' });
   const [error, setError] = useState('');
   const [confirming, setConfirming] = useState(false);
 
@@ -544,8 +550,14 @@ function EditPrayerModal({ prayer, onSave, onDelete, onClose }) {
             ))}
           </div>
           {form.status === 'Ongoing' && (
-            <p className="text-[10px] text-gray-400 mt-2">You'll get a daily reminder to keep praying for this until it's marked Answered.</p>
+            <p className="text-[10px] text-gray-400 mt-2">This will appear in Today's Prayer Topics every day until it's marked Answered.</p>
           )}
+        </Field>
+        <Field label="Schedule for a day (optional)">
+          <input type="date" value={form.scheduledDate}
+            onChange={e => setForm(f => ({ ...f, scheduledDate: e.target.value }))}
+            className="input-line" />
+          <p className="text-[10px] text-gray-400 mt-1">It'll appear in Today's Prayer Topics on that day.</p>
         </Field>
         <div className="flex gap-3">
           <button type="button" onClick={onClose} className="btn-secondary flex-1">Cancel</button>
@@ -590,13 +602,19 @@ function PrayerRequests({ person, onAdd, onMarkAnswered, onUndoAnswered, onFollo
                 {pr.status === 'Ongoing' && (
                   <>
                     <span className="text-gray-300">·</span>
-                    <p className="text-[10px] uppercase tracking-[0.1em] text-blue-500">Ongoing — daily reminder</p>
+                    <p className="text-[10px] uppercase tracking-[0.1em] text-blue-500">Ongoing</p>
                   </>
                 )}
                 {pr.status === 'Answered' && (
                   <>
                     <span className="text-gray-300">·</span>
                     <p className="text-[10px] uppercase tracking-[0.1em] text-gray-400">Answered</p>
+                  </>
+                )}
+                {pr.scheduledDate && (
+                  <>
+                    <span className="text-gray-300">·</span>
+                    <p className="text-[10px] uppercase tracking-[0.1em] text-[#2A9D8F]">Scheduled {pr.scheduledDate}</p>
                   </>
                 )}
               </div>
